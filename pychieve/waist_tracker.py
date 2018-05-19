@@ -1,21 +1,110 @@
 #!/usr/bin/env python3
-# Uses sqlite to track data such as weight, etc.
 
-import sqlite3
 import time
 import json
 import argparse
-from os import path
+import datetime
+from os import path, getcwd
+from dateutil import parser
+from shutil import copy2
 
 GOLDEN_RATIO = (1 + 5 ** 0.5) / 2  # ≈1.618
-WAIST_HEIGHT_RATIO = .46  # ideal waist-height ratio
+WAIST_HEIGHT_RATIO = 0.447  # ideal waist-height ratio
+DATA_FILE = 'waist_tracker.json'
+
+data = {}
+backup = True  # If true, daily backup will be made of data.
+today = time.strftime("%Y-%m-%d")
 
 
-def create_table(c):
-    """Create the table if it does not exist already."""
-    # TODO: Check if the table exists in the the file.
-    c.execute("""CREATE TABLE waist_size(
-        date DATE NOT NULL, waist_size INTEGER, PRIMARY KEY(date)""")
+def backup_json():
+    """Create a backup copy of user data unless one was already created today."""
+    filename = DATA_FILE + '-' + today + '.bak'
+    if not path.isfile(filename):
+        copy2(DATA_FILE, filename)
+        return True
+    else:
+        return False
+
+
+def load_data():
+    """Retrieve data from JSON file."""
+    try:
+        if backup:  # Create daily backup if flag set to true.
+            backup_json()
+        with open(DATA_FILE, 'r') as file:
+            global data
+            data = json.load(file)
+    except FileNotFoundError:
+        print('No user data.')
+
+
+# For testing
+load_data()
+print(data)
+
+
+def save_data():
+    """Save data to json file."""
+    with open(DATA_FILE, 'w') as file:
+        json.dump(data, file)
+
+
+def in_to_cm(inches):
+    try:
+        inches = int(inches)
+    except ValueError:
+        print("Invalid input")
+        raise
+    return round(inches * 2.54)
+
+
+def cm_to_in(cm):
+    try:
+        cm = int(cm)
+    except ValueError:
+        print("Invalid input")
+        raise
+    return round(cm / 2.54)
+
+
+def get_current_waist():
+    # Returns most recent waist measurement in cm.
+    if data:
+        recent_date = max(list(data['waist']))
+        print("Recent date: ", recent_date)
+        return data['waist'][recent_date]
+    else:
+        print('Data not loaded.')
+        return False
+
+
+def get_current_shoulders():
+    # Returns most recent waist measurement in cm.
+    if data:
+        recent_date = max(list(data['shoulders']))
+        print("Recent date: ", recent_date)
+        return data['shoulders'][recent_date]
+    else:
+        print('Data not loaded.')
+        return False
+
+
+# def print_goals():
+    # TODO
+
+
+def add_record(date, measurement):
+    """Add or update measurement for date."""
+    try:
+        newdate = parser.parse(date).strftime('%Y-%m-%d')
+        newnum = int(measurement)
+    except ValueError:
+        print('Invalid input!')
+        raise
+    # Update data if it exists, else add it.
+    data['waist'][newdate] = newnum
+    return True
 
 
 def berate_user(waist_height_ratio):
@@ -58,91 +147,45 @@ def berate_user(waist_height_ratio):
 
 def main():
 
-    height = 177  # cm
+    height = data['height']  # cm
     ideal_waist = int(height * WAIST_HEIGHT_RATIO)
     ideal_shoulders = int(height * WAIST_HEIGHT_RATIO * GOLDEN_RATIO)
-    today = time.strftime("%Y-%m-%d")
 
-    # connect to database
-    conn = sqlite3.connect('my_tracker.db')
-    c = conn.cursor()
-    c.execute("""CREATE TABLE waist_size(
-        date DATE NOT NULL, waist_size INTEGER, PRIMARY KEY(date)""")
-    # if not path.isfile('./my_tracker.db'):
-    # create_table(c)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-c',
+        '--new-cm',
+        action='store',
+        dest='cm',
+        help="input today's measurement in cm"
+    )
+    parser.add_argument(
+        '-i',
+        '--new-inches',
+        action='store',
+        dest='inches',
+        help="input today's measurement in inches"
+    )
+    parser.add_argument(
+        '-l',
+        '--list-records',
+        action='store_true',
+        default=False,
+        dest="list-records",
+        help='print saved measurements'
+    )
 
-    print("Target waist size: {} cm\nTarget shoulder size: {} cm".format(
-        ideal_waist, ideal_shoulders))
+    args = parser.parse_args()
 
-    print("Today is {}".format(today))
-
-    # Check if we want to enter new data for today.
-    newinput = input("Enter new data? (y/n)\n>")
-    # If input begins with the letter 'y', the answer is 'yes'. Convert newinput to boolean.
-    newinput = newinput.lower().strip()[0] == 'y'
-
-    if newinput:
-        # Get new waist size
-        while True:
-            try:
-                waist = int(input(
-                    "What is your waist size (in cm) today? (Enter any non-numeric string to skip.)\n>"))
-            except ValueError:
-                print("Value Error. Enter waist size as a whole number in cm.")
-                continue
-            else:
-                break
-
-        new_waist_data = (today, waist)
-
-        while True:
-            try:
-                shoulders = int(input(
-                    "What is your shoulder size (in cm) today? (Enter any non-numeric string to skip.)\n>"))
-            except ValueError:
-                print("Value Error. Enter waist size as a whole number in cm.")
-                continue
-            else:
-                break
-
-        new_shoulder_data = (today, shoulders)
-
-        try:
-            c.execute('''INSERT INTO waist_size
-                     VALUES (?, ?)''', new_waist_data)
-        except sqlite3.Error as e:
-            print(e)
-
-        try:
-            c.execute('''INSERT INTO shoulder_size
-                     VALUES (?, ?)''', new_shoulder_data)
-        except sqlite3.Error as e:
-            print(e)
-    else:
-        c.execute('''SELECT waist_size
-                             FROM waist_size
-                             WHERE date =(
-                                   SELECT MAX(date) FROM waist_size);''')
-        waist = c.fetchone()[0]
-        print("Most recent waist size: {} cm".format(waist))
-        c.execute('''SELECT shoulder_size
-                             FROM shoulder_size
-                             WHERE date =(
-                                   SELECT MAX(date) FROM shoulder_size);''')
-        shoulders = c.fetchone()[0]
-        print("Most recent shoulder width: {} cm".format(shoulders))
-
-    adonis_index = shoulders / waist
-    waist_height_ratio = waist / height
-    berate_user(waist_height_ratio)
-
-    # print waist_size database
-    # c.execute("SELECT * FROM waist_size")
-    # rows = c.fetchall()
-    # 94
-
-    conn.commit()
-    conn.close()
+    if args.cm:
+        add_record(today, args.cm)
+        print("Target waist size: {} cm\nTarget shoulder size: {} cm".format(
+            ideal_waist, ideal_shoulders))
+    elif args.inches:
+        measurement = in_to_cm(args.inches)
+        add_record(today, measurement)
+        print("Target waist size: {} in\nTarget shoulder size: {} in".format(
+            cm_to_in(ideal_waist), cm_to_in(ideal_shoulders)))
 
 
 if __name__ == '__main__':
