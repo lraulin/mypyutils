@@ -29,11 +29,11 @@ def backup_json():
 
 def load_data():
     """Retrieve data from JSON file."""
+    global data
     try:
         if backup:  # Create daily backup if flag set to true.
             backup_json()
         with open(DATA_FILE, 'r') as file:
-            global data
             data = json.load(file)
     except FileNotFoundError:
         print('No user data.')
