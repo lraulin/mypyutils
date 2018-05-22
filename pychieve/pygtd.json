@@ -1,1 +1,19 @@
-{"inbox": {"1526920934.1559992": "new task", "1526920943.643741": "another task", "1526920950.3466117": "third task"}, "actions": {}, "projects": {}, "someday_maybe": {}, "scheduled": {}}
+{
+  "inbox": {
+    "1526940668.491929": "message dave",
+    "1526940678.2557912": "message Bora"
+  },
+  "actions": { "1526940664.5282059": "message Sofia back" },
+  "projects": {
+    "1526940605.9892857": {
+      "short_name": "PyGTD",
+      "text": "Complete GTD CLI app"
+    }
+  },
+  "someday_maybe": { "1526940651.2711103": "get job" },
+  "scheduled": {},
+  "areas_of_focus": {},
+  "goals": {},
+  "vision": {},
+  "purpose_principles": {}
+}

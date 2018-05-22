@@ -7,6 +7,8 @@ from sys import stdout
 from dateutil import parser
 
 # TODO: suppress help message when option is used without positional argument
+# TODO: shortcut key popup for inbox entry. First use terminal. Maybe later do 
+# it with a gui window
 '''First, set up GTD flow:
 add to inbox
 process inbox
@@ -70,7 +72,8 @@ def empty(container):
 
 
 def process_inbox():
-    for key in data['inbox']:
+    keylist = list(data['inbox'].keys())
+    for key in keylist:
         process_inbox_item(key)
 
 
@@ -80,20 +83,20 @@ def timer(duration):
 
     while True:
         try:
-            sys.stdout.write("\r{minutes}:{seconds}".format(
+            stdout.write("\r{minutes}:{seconds}".format(
                 minutes=minutes, seconds=seconds))
-            sys.stdout.flush()
-            time.sleep(1)
+            stdout.flush()
+            sleep(1)
             if seconds >= 0:
                 minutes -= 1
                 seconds = 60
-        except KeyboardInterrupt, e:
+        except KeyboardInterrupt:
             break
     print("Time's up!")
     # TODO: add alarm sound
 
 
-del delete_from_inbox(id):
+def delete_from_inbox(id):
     del data['inbox'][id]
     save_data
     print('Item removed from Inbox.')
@@ -115,8 +118,8 @@ def new_appointment(id=time()):
     text = input("Describe scheduled item:\n> ")
     ok = False
     while not ok:
-        when = input("Date (and time, optional)\nAny format should work:\> ")
-        when = str(parse(when))
+        when = input("Date (and time, optional)\nAny format should work:\n> ")
+        when = str(parser.parse(when))
         print("Date/Time: {}".format(when))
         isok = input("Ok? (y/n)").lower()
         if 'y' in isok:
@@ -126,9 +129,18 @@ def new_appointment(id=time()):
     print('Appointment added to Scheduled list.')
 
 
+def new_project(id=time()):
+    text = input("Project: What's the desired outcome? What are you committed "
+                 + "to accomplishing or finishing about this? What would 'done'"
+                 + " look like?\n> ")
+    short_name = input("Short name: ")
+    data['projects'][id] = {'short_name': short_name, 'text': text}
+    save_data()
+
+
 def process_inbox_item(id):
     global data
-    print(id)
+    print('\n{}'.format(data['inbox'][id]))
     actionable = input("Is it actionable? (y/n):").lower()
     if 'y' in actionable:
         steps = input("Can it be done in one step? (y/n):").lower()
@@ -136,7 +148,7 @@ def process_inbox_item(id):
             print("What's the next action?")
             two_minutes = input(
                 "Will it take less than 2 minutes? (y/n): ").lower()
-            if two_minutes:
+            if 'y' in two_minutes:
                 print("Do it now!")
                 input("Press any key to start 2 min timer...")
                 timer(120)
@@ -150,16 +162,18 @@ def process_inbox_item(id):
                 print("Delegate [add to Waiting For list (w)] or defer [add to Next"
                       + "Actions (a) or Scheduled Actions/Calendar (c)]?")
                 later = input("> ").lower()
-                if later[0] == 'w'
+                if later[0] == 'w':
                     data['waiting'][id] = data['inbox'][id]
                     delete_from_inbox(id)
                     save_data()
                 elif later[0] == 'a':
                     new_action(id)
+                    delete_from_inbox(id)
                 elif later[0] == 'c':
                     new_appointment(id)
+                    delete_from_inbox(id)
         else:
-            add_project(id)
+            new_project(id)
 
     else:
         not_actionable = input(
@@ -177,6 +191,11 @@ def process_inbox_item(id):
             delete_from_inbox(id)
             save_data()
             print('Item added to Reference list.')
+
+
+def weekly_review():
+    # TODO
+    pass
 
 
 def main():
@@ -251,10 +270,11 @@ def main():
         dest='empty',
         help='empty container'
     )
-    action_group.add_argument(
+    parser.add_argument(
         '-d',
         '--process-inbox',
-        help='Process inbox.'
+        action='store_true',
+        help='Process inbox. ("d" is for "daily".)'
     )
 
     args = parser.parse_args()

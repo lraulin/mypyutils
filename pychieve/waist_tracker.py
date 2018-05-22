@@ -111,7 +111,8 @@ def berate_user(waist_height_ratio):
     """Encourages user to pursue goals."""
     print("Your current Adonis Index is {:.2f}".format(adonis_index))
     print(
-        "Your current waist-to-height ratio is {:.2f}".format(waist_height_ratio))
+        "Your current waist-to-height ratio is {:.2f}"
+        .format(waist_height_ratio))
     if waist_height_ratio >= .53:
         print("""
     You're fat as fuck! Your health is at risk and you look disgusting!
