@@ -7,10 +7,17 @@ import datetime
 from os import path, getcwd
 from dateutil import parser
 from shutil import copy2
+from inspect import currentframe, getframeinfo
+from pathlib import Path
 
 GOLDEN_RATIO = (1 + 5 ** 0.5) / 2  # ≈1.618
 WAIST_HEIGHT_RATIO = 0.447  # ideal waist-height ratio
-DATA_FILE = 'waist_tracker.json'
+# Get path script is executed from so the same data file is used regardless of
+# where the script is called from.
+THISFILE = getframeinfo(currentframe()).filename
+PARENT = Path(THISFILE).resolve().parent
+DATA_FILENAME = 'waist_tracker.json'
+DATA_FILE = PARENT / DATA_FILENAME
 
 data = {}
 backup = True  # If true, daily backup will be made of data.
@@ -19,9 +26,9 @@ today = time.strftime("%Y-%m-%d")
 
 def backup_json():
     """Create a backup copy of user data unless one was already created today."""
-    filename = DATA_FILE + '-' + today + '.bak'
-    if not path.isfile(filename):
-        copy2(DATA_FILE, filename)
+    filepath = PARENT / (DATA_FILENAME + '-' + today + '.bak')
+    if not path.isfile(filepath):
+        copy2(DATA_FILE, filepath)
         return True
     else:
         return False
@@ -46,6 +53,7 @@ print(data)
 
 def save_data():
     """Save data to json file."""
+    print('saving data...')
     with open(DATA_FILE, 'w') as file:
         json.dump(data, file)
 
@@ -94,8 +102,9 @@ def get_current_shoulders():
     # TODO
 
 
-def add_record(date, measurement):
+def add_record(date, measurement, where):
     """Add or update measurement for date."""
+    global data
     try:
         newdate = parser.parse(date).strftime('%Y-%m-%d')
         newnum = int(measurement)
@@ -103,7 +112,10 @@ def add_record(date, measurement):
         print('Invalid input!')
         raise
     # Update data if it exists, else add it.
-    data['waist'][newdate] = newnum
+    data[where][newdate] = newnum
+    print('adding record...')
+    print(data)
+    save_data()
     return True
 
 
@@ -157,6 +169,7 @@ def main():
         '-c',
         '--new-cm',
         action='store',
+        type=int,
         dest='cm',
         help="input today's measurement in cm"
     )
@@ -164,6 +177,7 @@ def main():
         '-i',
         '--new-inches',
         action='store',
+        type=int,
         dest='inches',
         help="input today's measurement in inches"
     )
@@ -171,20 +185,35 @@ def main():
         '-l',
         '--list-records',
         action='store_true',
-        default=False,
         dest="list-records",
         help='print saved measurements'
+    )
+    parser.add_argument(
+        '-s',
+        '--shoulders',
+        action='store_true',
+        dest='shoulders',
+        help='record shoulder measurement. default is waist measurement.'
     )
 
     args = parser.parse_args()
 
-    if args.cm:
-        add_record(today, args.cm)
+    if args.cm and not args.shoulders:
+        add_record(today, args.cm, 'waist')
         print("Target waist size: {} cm\nTarget shoulder size: {} cm".format(
             ideal_waist, ideal_shoulders))
-    elif args.inches:
+    elif args.inches and not args.shoulders:
         measurement = in_to_cm(args.inches)
-        add_record(today, measurement)
+        add_record(today, measurement, 'waist')
+        print("Target waist size: {} in\nTarget shoulder size: {} in".format(
+            cm_to_in(ideal_waist), cm_to_in(ideal_shoulders)))
+    elif args.shoulders and not args.inches:
+        add_record(today, args.cm, 'shoulders')
+        print("Target waist size: {} cm\nTarget shoulder size: {} cm".format(
+            ideal_waist, ideal_shoulders))
+    elif args.inches and args.shoulders:
+        measurement = in_to_cm(args.inches)
+        add_record(today, measurement, 'shoulders')
         print("Target waist size: {} in\nTarget shoulder size: {} in".format(
             cm_to_in(ideal_waist), cm_to_in(ideal_shoulders)))
 

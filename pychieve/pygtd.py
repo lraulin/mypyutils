@@ -20,9 +20,9 @@ process inbox
 
 # Get path script is executed from so the same data file is used regardless of
 # where the script is called from.
-filename = getframeinfo(currentframe()).filename
-parent = Path(filename).resolve().parent
-DATA_FILE = parent / 'pygtd.json'
+FILENAME = getframeinfo(currentframe()).filename
+PARENT = Path(FILENAME).resolve().parent
+DATA_FILE = PARENT / 'pygtd.json'
 
 data = {
     'inbox': {},
@@ -57,8 +57,9 @@ def save_data():
         json.dump(data, file)
 
 
-def add_to_inbox(time_stamp, text):
+def add_to_inbox(text):
     global data
+    time_stamp = time()
     data['inbox'][time_stamp] = text
     print(data)
     save_data()
@@ -81,8 +82,8 @@ def empty(container):
 
 def process_inbox():
     keylist = list(data['inbox'].keys())
-    for key in keylist:
-        process_inbox_item(key)
+    for index, key in enumerate(keylist, start=1):
+        process_inbox_item(index, len(keylist), key)
 
 
 def timer(duration):
@@ -106,7 +107,7 @@ def timer(duration):
 
 def delete_from_inbox(id):
     del data['inbox'][id]
-    save_data
+    save_data()
     print('Item removed from Inbox.')
     return True
 
@@ -114,8 +115,9 @@ def delete_from_inbox(id):
 def new_action(id=time()):
     global data
     print("Next Action: What's the next thing you need to do to move toward "
-          + "the desired outcome?\nVisualize yourself doing it and describe it in"
-          + " a sentence.")
+          + "the desired outcome?\nVisualize yourself doing it and describe it "
+          + "in a sentence. Be specific. Ie not 'set up meeting', but 'pick up "
+          + "the phone and call X'.")
     text = input("> ")
     data['actions'][id] = text
     save_data()
@@ -146,76 +148,97 @@ def new_project(id=time()):
     save_data()
 
 
-def process_inbox_item(id):
+def process_inbox_item(num, total, id):
     global data
-    print('\n{}'.format(data['inbox'][id]))
-    actionable = input("Is it actionable? (y/n):").lower()
-    if 'y' in actionable:
-        steps = input("Can it be done in one step? (y/n):").lower()
-        if 'y' in steps:
-            print("What's the next action?")
-            two_minutes = input(
-                "Will it take less than 2 minutes? (y/n): ").lower()
-            if 'y' in two_minutes:
-                print("Do it now!")
-                input("Press any key to start 2 min timer...")
-                timer(120)
-                done = input("Done? (y/n): ").lower()
-                if 'y' in done:
-                    delete_from_inbox(id)
-                    save_data()
-                else:
-                    process_inbox_item(id)
-            else:
-                print("Delegate [add to Waiting For list (w)] or defer [add to Next"
-                      + "Actions (a) or Scheduled Actions/Calendar (c)]?")
-                later = input("> ").lower()
-                if later[0] == 'w':
-                    data['waiting'][id] = data['inbox'][id]
-                    delete_from_inbox(id)
-                    save_data()
-                elif later[0] == 'a':
-                    new_action(id)
-                    delete_from_inbox(id)
-                elif later[0] == 'c':
-                    new_appointment(id)
-                    delete_from_inbox(id)
+    print("\nProcess Item:")
+    print('\t({}/{}) {}\n'.format(num, total, data['inbox'][id]))
+    actionable = input("(a) Add to Next Actions\n"
+                       + "(d) Do it now in 2 minutes\n"
+                       + "(c) Schedule it -- add to Calendar\n"
+                       + "(w) Add to Waiting For list\n"
+                       + "(p) Add to Projects list\n"
+                       + "(s) Add to Someday/Maybe\n"
+                       + "(r) Add to Reference\n"
+                       + "(t) Already done/Trash\n"
+                       + "> ").lower()
+    if 'a' in actionable:
+        new_action(id)
+        delete_from_inbox(id)
+    elif 'd' in actionable:
+        print("Do it now!")
+        input("Press any key to start 2 min timer...")
+        timer(120)
+        done = input("Done? (y/n): ").lower()
+        if 'y' in done:
+            delete_from_inbox(id)
+            save_data()
         else:
-            new_project(id)
-
+            process_inbox_item(id)
+    elif 'c' in actionable:
+        new_appointment(id)
+        delete_from_inbox(id)
+    elif 'w' in actionable:
+        data['waiting'][id] = data['inbox'][id]
+        delete_from_inbox(id)
+        save_data()
+    elif 'p' in actionable:
+        new_project(id)
+    elif 's' in actionable:
+        data['someday_maybe'][id] = data['inbox'][id]
+        delete_from_inbox(id)
+        save_data()
+        print('Item added to Someday/Maybe list.')
+    elif 'r' in actionable:
+        data['reference'][id] = data['inbox'][id]
+        delete_from_inbox(id)
+        save_data()
+        print('Item added to Reference list.')
+    elif 't' in actionable:
+        delete_from_inbox(id)
     else:
-        not_actionable = input(
-            "(T)rash, (S)omeday/maybe, (R)eference: ").lower()
-        if 't' in not_actionable:
-            delete_from_inbox(id)
-        elif 's' in not_actionable:
-            data['someday_maybe'][id] = data['inbox'][id]
-            delete_from_inbox(id)
-            save_data()
-            print('Item added to Someday/Maybe list.')
-            # TODO: allow editing of new someday item.
-        elif 'r' in not_actionable:
-            data['reference'][id] = data['inbox'][id]
-            delete_from_inbox(id)
-            save_data()
-            print('Item added to Reference list.')
+        print('Invalid input')
+        process_inbox_item(id)
+
+
+def daily_revew():
+    # TODO: print calendar items with dates/days remaining, and next actions
+    pass
+
+
+def inbox_prompt():
+    while True:
+        print("Enter everything you can think of that you might want to do "
+              + "something about. Enter 'q' when done.")
+        text = input("INBOX> ")
+        if text == 'q':
+            break
+        add_to_inbox(text)
 
 
 def weekly_review():
-    # TODO
+    # Empty your head
+    inbox_prompt()
+    # Review projects list; decide next action for each one
+    # Review next actions; mark off if completed
+    # Review waiting for
+    # Review checklists
+    # Review Someday/Maybe
     pass
 
 
 def inbox_popup():
-    timestamp = time()
     text = input("INBOX> ")
-    add_to_inbox(timestamp, text)
+    add_to_inbox(text)
+
+
+def bigger_picture_review():
+    # TODO
+    pass
 
 
 def main():
     global data
     load_data()
-    time_stamp = time()
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'input',
@@ -327,7 +350,7 @@ def main():
         action = 'empty'
 
     if not container and not action:
-        add_to_inbox(time_stamp, text)
+        add_to_inbox(text)
 
     if args.process_inbox:
         process_inbox()

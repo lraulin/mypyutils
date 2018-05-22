@@ -21,3 +21,9 @@ with the option -Q. Hit Ctrl-C to exit.
 This helps with the capture portion of GTD methodology. Enter ideas whenever
 they occur to you. Don't think too much...just write it down. Later, you can
 process your Inbox and decide what if anything to do about it.
+
+Collecting: Add ideas to Inbox as they occur.
+
+Processing: Call with -d to run process_inbox() function.
+
+Organizing: Handled by app.
