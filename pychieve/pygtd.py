@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import json
 import pyperclip
@@ -5,16 +7,22 @@ from os import path
 from time import time, sleep
 from sys import stdout
 from dateutil import parser
+from inspect import currentframe, getframeinfo
+from pathlib import Path
 
 # TODO: suppress help message when option is used without positional argument
-# TODO: shortcut key popup for inbox entry. First use terminal. Maybe later do 
+# TODO: shortcut key popup for inbox entry. First use terminal. Maybe later do
 # it with a gui window
 '''First, set up GTD flow:
 add to inbox
 process inbox
 '''
 
-DATA_FILE = 'pygtd.json'
+# Get path script is executed from so the same data file is used regardless of
+# where the script is called from.
+filename = getframeinfo(currentframe()).filename
+parent = Path(filename).resolve().parent
+DATA_FILE = parent / 'pygtd.json'
 
 data = {
     'inbox': {},
@@ -198,6 +206,12 @@ def weekly_review():
     pass
 
 
+def inbox_popup():
+    timestamp = time()
+    text = input("INBOX> ")
+    add_to_inbox(timestamp, text)
+
+
 def main():
     global data
     load_data()
@@ -276,6 +290,13 @@ def main():
         action='store_true',
         help='Process inbox. ("d" is for "daily".)'
     )
+    parser.add_argument(
+        '-q',
+        '--quick',
+        dest='quick',
+        action='store_true',
+        help='Prompt for inbox for use with hotkey.'
+    )
 
     args = parser.parse_args()
     text = ' '.join(args.input) if args.input else pyperclip.paste()
@@ -298,6 +319,10 @@ def main():
 
     # set action
     action = None
+    if args.quick:
+        inbox_popup()
+        return True
+
     if args.empty:
         action = 'empty'
 
