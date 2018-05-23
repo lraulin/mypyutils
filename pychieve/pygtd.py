@@ -173,7 +173,7 @@ def process_inbox_item(num, total, id):
             delete_from_inbox(id)
             save_data()
         else:
-            process_inbox_item(id)
+            process_inbox_item(num, total, id)
     elif 'c' in actionable:
         new_appointment(id)
         delete_from_inbox(id)
@@ -197,7 +197,7 @@ def process_inbox_item(num, total, id):
         delete_from_inbox(id)
     else:
         print('Invalid input')
-        process_inbox_item(id)
+        process_inbox_item(num, total, id)
 
 
 def daily_revew():

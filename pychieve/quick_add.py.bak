@@ -6,8 +6,6 @@ used with global keyboard shortcut. Alternatively, if called with -c, will add
 contents of clipboard to Inbox.
 """
 
-# TODO: Fix pylint error: unable to import pygtd (but it works anyway...)
-
 import argparse
 import pyperclip
 from pygtd import load_data, save_data, add_to_inbox, inbox_popup

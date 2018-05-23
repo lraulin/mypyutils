@@ -1,10 +1,28 @@
 #!/usr/bin/env python3
+
 from random import randrange, randint, gauss
+from sys import argv
+import re
+
+FUDGE_SCALE = {
+    7: 'Legendary+++',
+    6: 'Legendary++',
+    5: 'Legendary+',
+    4: 'Legendary',
+    3: 'Superb',
+    2: 'Great',
+    1: 'Good',
+    0: 'Fair',
+    -1: 'Mediocre',
+    -2: 'Poor',
+    -3: 'Terrible',
+    -4: 'Abysmal'
+}
 
 
 def roll(number, sides, modifier=0):
     result = 0
-    for i in range(number):
+    for _ in range(number):
         result += randrange(sides) + 1
     return result + modifier
 
@@ -94,17 +112,18 @@ def rolld20():
     return roll(1, 20)
 
 
-def roll4dF():
+def rolldF(num, mod):
     result = 0
-    for i in range(4):
+    for _ in range(num):
         result += randrange(3) - 1
-    return '{:+}'.format(result)
+    result += mod
+    return result
 
 
-def roll_fudge():
-    descriptors = ['Terrible', 'Poor', 'Mediocre', 'Fair', 'Good', 'Great']
-    roll = roll4dF()
-    return descriptors[roll + 3]
+def roll_fudge(num, mod):
+    roll = int(rolldF(num, mod))
+    print('{} ({:+})'.format(FUDGE_SCALE[roll], roll))
+    return roll
 
 
 def roll_percentile():
@@ -115,7 +134,7 @@ def roll_percentile():
 # can also take other types of dice, number of dice, and number of high rolls to keep
 def roll_best(sides=6, dice=4, keep=3):
     rolls = []
-    for i in range(dice):
+    for _ in range(dice):
         rolls.append(randint(1, sides))
     # print(rolls)
     while len(rolls) > keep:
@@ -126,7 +145,7 @@ def roll_best(sides=6, dice=4, keep=3):
 # Set of D&D scores using 4d6b3 method
 def gen_attributes():
     attributes = []
-    for i in range(6):
+    for _ in range(6):
         attributes.append(roll_best())
     return attributes
 
@@ -136,7 +155,7 @@ def roll_owod(pool, difficulty, successes=0, reroll=False):
     no_successes = True
     any_ones = False
 
-    for i in range(pool):
+    for _ in range(pool):
         roll = randint(1, 10)
         if roll == 1 and reroll == False:
             successes -= 1
@@ -155,7 +174,7 @@ def roll_owod(pool, difficulty, successes=0, reroll=False):
 
 def roll_nwod(pool, successes=0):
     # Roll using rules from New World of Darkness
-    for i in range(pool):
+    for _ in range(pool):
         roll = randint(1, 10)
         if roll == 1:
             successes -= 1
@@ -207,7 +226,6 @@ def gurps_quick_contest(skill1, skill2, mod1=0, mod2=0):
 
 
 def gurps_regular_contest(skill1, skill2):
-    turns = 0
     winner = ''
     # If both skills are low, make the lower one 10, and
     # increase the other one by the same amount.
@@ -255,56 +273,25 @@ def gurps_long_task(hours, *args):
     return print('Task completed in {} days.'.format(day))
 
 
-# --------------------------------
-# Test
+def main():
+    argstring = ' '.join(argv[1:])
+    # matches 3d100, 4dF, d6, etc optionally followed by +/- modifier
+    pattern = re.compile(r"(\d*)d([Ff]|\d+)(\s?[+-]\s?\d+)*")
+    match = pattern.match(argstring)
+    print(match)
+    print(match.groups)
+    if not match:
+        print('Invalid input')
+        return False
+    print(match)
+    num = int(match.group(1)) if match.group(1) else 1
+    sides = int(match.group(2)) if match.group(2).isdigit() else 'F'
+    mod = int(match.group(3)) if match.group(3) else 0
+    while True:
+        result = roll(num, sides) if not sides == 'F' else roll_fudge(num, mod)
+        print(result)
+        input('Press any key to roll again. Ctrl-C to exit')
 
-# if __name__ == "__main__":
-#     for i in range(10):
-#         #print(roll_gurps_contested(11, 15))
-#         #print(roll_gurps(10))
-#         #print(roll_best())
-#         print(gen_attributes())
-#
-#     gurps_long_task(100, 10, 10, 10)
 
-# --------------------------------
-
-# OOP version
-
-# class Die():
-#     def __init__(self, sides):
-#         self.sides = sides
-#
-#     def roll(self, number):
-#         result = 0
-#         for i in range(number):
-#             result += randrange(self.sides) + 1
-#         return result
-#
-# class D6(Die):
-#     def __init__(self):
-#         self.sides = 6
-#
-# class GURPSRoll():
-#
-#     def __init__(self, skill, *args):
-#         self.skill = skill
-#         self.mod = sum(args)  # Take arbitrary number of modifiers to the roll
-#         self.success = None
-#         self.roll = randint(1, 6) + randint(1, 6) + randint(1, 6) + mod
-#         self.margin = skill - roll  # Margin of success or failure
-#         if roll <= 4:
-#             self.success = True
-#         elif roll >= 17:
-#             self.success = False
-#
-#     def get_margin(self):
-#         return self.margin
-#
-#     def get_success(self):
-#         return self.success
-#
-# class GurpsLongTask():
-#
-#     def __init__(self, hours, *args):
-#         skills = args
+if __name__ == '__main__':
+    main()
