@@ -3,6 +3,7 @@
 import argparse
 import json
 import pyperclip
+import datetime
 from os import path
 from time import time, sleep
 from sys import stdout
@@ -105,10 +106,24 @@ def timer(duration):
     # TODO: add alarm sound
 
 
-def delete_from_inbox(id):
-    del data['inbox'][id]
+def delete_from_inbox(id, container='inbox'):
+    # TODO: refactor to delete any item
+    del data[container][id]
     save_data()
-    print('Item removed from Inbox.')
+    print('Item removed from ' + container + '.')
+    return True
+
+
+def complete(id, container='actions'):
+    dt = datetime.datetime.now().strftime("%A, %d. %B %Y %I:%M%p")
+    text = data[container][id]
+    try:
+        data['completed'][id] = {'completion_date': dt, 'text': text}
+    except KeyError:
+        data['completed'] = {}
+        data['completed'][id] = {'completion_date': dt, 'text': text}
+
+    delete_from_inbox(id, container)
     return True
 
 
@@ -198,6 +213,43 @@ def process_inbox_item(num, total, id):
     else:
         print('Invalid input')
         process_inbox_item(num, total, id)
+
+
+def print_actions():
+    while True:
+        keylist = list(data['actions'])
+        print('\nNext Actions:')
+        for i, key in enumerate(keylist):
+            print('  ' + str(i) + ' ' + data['actions'][key])
+        print('Enter number followed by command [ie 1 d]:')
+        print('(d)one, (t)rash, (e)dit, (q)uit')
+        choice = input('> ').lower()
+        if 'q' in choice:
+            print('Goodbye!')
+            break
+        choice = choice.split()
+        try:
+            numchoice = int(choice[0])
+        except ValueError:
+            print('Invalid input.')
+            continue
+        if numchoice >= len(keylist):
+            print('Value out of range.')
+            continue
+        action = choice[1][0]
+        if action == 't':
+            print('Delete task: ' + data['actions'][keylist[numchoice]])
+            confdelete = input('(y/n)').lower()
+            if 'y' in confdelete:
+                delete_from_inbox(keylist[numchoice])
+            else:
+                continue
+        elif action == 'd':
+            complete(keylist[numchoice])
+            continue
+        elif action == 'e':
+            print('Not implimented')
+            continue
 
 
 def daily_revew():
@@ -360,6 +412,9 @@ def main():
             empty(container)
         else:
             print('Container to empty must be specified.')
+
+    if args.next:
+        print_actions()
 
 
 if __name__ == '__main__':

@@ -54,7 +54,7 @@ print(data)
 def save_data():
     """Save data to json file."""
     print('saving data...')
-    with open(DATA_FILE, 'w') as file:
+    with open(DATA_FILE, 'w+') as file:
         json.dump(data, file)
 
 
