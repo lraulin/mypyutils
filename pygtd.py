@@ -62,7 +62,6 @@ def add_to_inbox(text):
     global data
     time_stamp = time()
     data['inbox'][time_stamp] = text
-    print(data)
     save_data()
     print('Item added to inbox: {}'.format(text))
 
@@ -193,9 +192,13 @@ def process_inbox_item(num, total, id):
         new_appointment(id)
         delete_from_inbox(id)
     elif 'w' in actionable:
-        data['waiting'][id] = data['inbox'][id]
-        delete_from_inbox(id)
-        save_data()
+        try:
+            data['waiting'][id] = data['inbox'][id]
+            delete_from_inbox(id)
+        except KeyError:
+            data['waiting'] = {}
+            data['waiting'][id] = data['inbox'][id]
+            delete_from_inbox(id)
     elif 'p' in actionable:
         new_project(id)
     elif 's' in actionable:
@@ -204,9 +207,13 @@ def process_inbox_item(num, total, id):
         save_data()
         print('Item added to Someday/Maybe list.')
     elif 'r' in actionable:
-        data['reference'][id] = data['inbox'][id]
-        delete_from_inbox(id)
-        save_data()
+        try:
+            data['reference'][id] = data['inbox'][id]
+            delete_from_inbox(id)
+        except KeyError:
+            data['reference'] = {}
+            data['reference'][id] = data['inbox'][id]
+            delete_from_inbox(id)
         print('Item added to Reference list.')
     elif 't' in actionable:
         delete_from_inbox(id)
@@ -300,58 +307,21 @@ def main():
     # Options for selecting container (inbox, actions, projects, etc) to
     # perform action (add, list, delete, etc) on. Only one container may be
     # selected.
-    container_group = parser.add_mutually_exclusive_group()
-    container_group.add_argument(
+    parser.add_argument(
         '-i',
         '--inbox',
         action='store_true',
         dest='inbox',
         help='Inbox'
     )
-    container_group.add_argument(
+    parser.add_argument(
         '-n',
         '--next-actions',
         action='store_true',
         dest='next',
         help='Next Actions'
     )
-    container_group.add_argument(
-        '-p',
-        '--projects',
-        action='store_true',
-        dest='projects',
-        help='Projects.'
-    )
-    container_group.add_argument(
-        '-s',
-        '--someday-maybe',
-        action='store_true',
-        dest='someday_maybe',
-        help='Someday/Maybe'
-    )
-    container_group.add_argument(
-        '-w',
-        '--waiting_for',
-        action='store_true',
-        dest='waiting_for',
-        help='Waiting for.'
-    )
-    container_group.add_argument(
-        '-c',
-        '--scheduled',
-        action='store_true',
-        dest='scheduled',
-        help='Scheduled (Calendar).'
-    )
-    action_group = parser.add_mutually_exclusive_group()
-    action_group.add_argument(
-        '-l',
-        '--list',
-        action='store_true',
-        dest='list',
-        help='list contents. Combine with container argument.'
-    )
-    action_group.add_argument(
+    parser.add_argument(
         # TODO: For testing! Remove, or add confirmation dialogue
         '-e',
         '--empty',
@@ -377,31 +347,11 @@ def main():
     text = ' '.join(args.input) if args.input else pyperclip.paste()
     print(args)
 
-    # set container
-    container = None
-    if args.inbox:
-        container = 'inbox'
-    elif args.next:
-        container = 'next_actions'
-    elif args.projects:
-        container = 'projects'
-    elif args.someday_maybe:
-        container = 'someday_maybe'
-    elif args.waiting_for:
-        container = 'waiting_for'
-    elif args.scheduled:
-        container = 'scheduled'
-
-    # set action
-    action = None
     if args.quick:
         inbox_popup()
         return True
 
-    if args.empty:
-        action = 'empty'
-
-    if not container and not action:
+    if args.inbox:
         add_to_inbox(text)
 
     if args.process_inbox:

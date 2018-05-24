@@ -62,7 +62,7 @@ enter, and the window will close and the text will be saved as a new Inbox
 item.
 
 quick_add.py -c will save the contents of your clipboard as a new Inbox item,
-and could also be added to keyboard shortcut.
+and could also be added to a keyboard shortcut.
 
 The prompt can also be used to enter multiple tasks by calling the main program
 with the option -Q. Hit Ctrl-C to exit.
@@ -72,8 +72,7 @@ with the option -Q. Hit Ctrl-C to exit.
 (Will probably move to separate repo at some point.)
 
 CLI app for recording waist and shoulder measurements. Calculates your ideal
-measurements, inspired by the [Adonis Index](http://www.adonisgoldenratio.com/)
-program.
+measurements.
 
 ## Usage
 
@@ -85,15 +84,24 @@ waist_tracker.py -l # view records
 
 ## Background
 
+Inspired by the [Adonis
+Index](http://www.criticalbench.com/review_adonis_index_workout.htm) program.
 (I don't get any affiliate money.) It's a decent but pretty standard
 body-building program. (Although it recommends against deadlifts, which is
-controversial.) If you're a man and want a better body, you probably need
-broader shoulders and a slimmer waist. And I find waist size a more appropriate
-metric than weight, since I don't care how much I weigh, and muscle weighs more
-than fat. The main thing I got from the program was specific numbers to aim
-for.
+controversial.) If you're a man and want a better body, you probably need more
+muscle and less fat. I.e., broader shoulders and a slimmer waist. And I find
+waist size a more appropriate metric than weight, since I don't care how much I
+weigh, and muscle weighs more than fat. The main thing I got from the program
+was specific numbers to aim for.
 
 I lost 8 cm already! From [intermittent
 fasting](https://en.wikipedia.org/wiki/Intermittent_fasting); ie, not eating
-before 2 pm. But I find that keeping track of my measurements help to stay
+before 2 pm. But I find that keeping track of my measurements helps to stay
 motivated.
+
+You shouldn't stress too much about your physique, or compare yourself to some
+idea of 'perfection', but if you want to get in better shape, it's useful to
+know what shape you'd like to be in. It's hard to get somewhere if you don't
+know where you're going. The ideal proportions are also useful for knowing when
+enough is enough--it's possible to get too skinny or too big, so just getting
+bigger or thinner isn't a well-defined goal.
