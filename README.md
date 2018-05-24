@@ -28,7 +28,7 @@ sticking with it consistently. So I'm trying to make it easier by automating
 the process. Rather than simply a todo app that CAN be used to apply GTD, I'm
 writing a program to guide you through the process of actually applying GTD.
 
-I've made several ways to quickly an easily capture any idea into your Inbox.
+I've made several ways to quickly and easily capture any idea into your Inbox.
 Then, when you decide to process your Inbox, it will go through each item,
 FIFO, and you will be asked to decide what it is/what if anything you will do
 about it. If it's a Next Action, you will be prompted to write a sentence
@@ -39,6 +39,8 @@ exactly 'done' will look like. It's ok to decide to not decide; send it to your
 Someday/Maybe list to reconsider later. By doing so, you have made a clear
 distinction between things you are committed to getting done, and those you
 aren't.
+
+I've found a great deal of procrastination is really procrastination of decision-making. Setting aside time regularly to make decisions, and separating thinking from doing, is a big part of what makes GTD so powerful.
 
 ## Capturing Ideas to Your Inbox
 
