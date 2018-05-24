@@ -25,7 +25,7 @@ eventually stop using it entirely.
 
 GTD can be life-changing, but the hard part is applying it completely and
 sticking with it consistently. So I'm trying to make it easier by automating
-the process. Rather than simply a todo app that CAN be used to apply GTD, I'm
+the process. Rather than simply a todo app that _can_ be used to apply GTD, I'm
 writing a program to guide you through the process of actually applying GTD.
 
 I've made several ways to quickly and easily capture any idea into your Inbox.
@@ -66,3 +66,34 @@ and could also be added to keyboard shortcut.
 
 The prompt can also be used to enter multiple tasks by calling the main program
 with the option -Q. Hit Ctrl-C to exit.
+
+# Waist Tracker
+
+(Will probably move to separate repo at some point.)
+
+CLI app for recording waist and shoulder measurements. Calculates your ideal
+measurements, inspired by the [Adonis Index](http://www.adonisgoldenratio.com/)
+program.
+
+## Usage
+
+waist_tracker.py -c # record waist measurement in cm\
+waist_tracker.py -i # record waist measurement in inches\
+waist_tracker.py -s # record shoulder measurement in cm\
+waist_tracker.py -si # record shoulder measurement in inches\
+waist_tracker.py -l # view records
+
+## Background
+
+(I don't get any affiliate money.) It's a decent but pretty standard
+body-building program. (Although it recommends against deadlifts, which is
+controversial.) If you're a man and want a better body, you probably need
+broader shoulders and a slimmer waist. And I find waist size a more appropriate
+metric than weight, since I don't care how much I weigh, and muscle weighs more
+than fat. The main thing I got from the program was specific numbers to aim
+for.
+
+I lost 8 cm already! From [intermittent
+fasting](https://en.wikipedia.org/wiki/Intermittent_fasting); ie, not eating
+before 2 pm. But I find that keeping track of my measurements help to stay
+motivated.
