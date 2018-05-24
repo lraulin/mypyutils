@@ -12,18 +12,18 @@ There are probably a million todo apps, and about half of them market
 themselves as being good for GTD. Who needs another one? I've tried dozens.
 (Some of my favorites are MyLife Organized, Effexis Achieve Planner (hasn't
 been updated since 2007, but it still works just fine), Doit.im, and
-EveryTask.) But surprizingly few do what I would like them to do: guide me
+EveryTask.) But surprisingly few do what I would like them to do: guide me
 through/automate the process of applying GTD methodology. (EveryTask and
 Achieve Planner come the closest.)
 
-Many try to please everyone by being flexible, accomodating whatever approach
+Many try to please everyone by being flexible, accommodating whatever approach
 or combination of approaches you prefer. That's fine if you have a clearly
 defined approach of your own, and the discipline to apply it consistently.
 However, I find that it usually leads to me getting lost in the complexity, or
-I just end up becoming lazy and inconsistent in my implimentation, and
+I just end up becoming lazy and inconsistent in my implementation, and
 eventually stop using it entirely.
 
-GTD can be lifechanging, but the hard part is applying it completely and
+GTD can be life-changing, but the hard part is applying it completely and
 sticking with it consistently. So I'm trying to make it easier by automating
 the process. Rather than simply a todo app that CAN be used to apply GTD, I'm
 writing a program to guide you through the process of actually applying GTD.
