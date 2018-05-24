@@ -4,7 +4,7 @@ import time
 import json
 import argparse
 import datetime
-from os import path, getcwd
+from os import path, getcwd, system
 from dateutil import parser
 from shutil import copy2
 from inspect import currentframe, getframeinfo
@@ -46,11 +46,6 @@ def load_data():
         print('No user data.')
 
 
-# For testing
-load_data()
-print(data)
-
-
 def save_data():
     """Save data to json file."""
     print('saving data...')
@@ -80,7 +75,6 @@ def get_current_waist():
     # Returns most recent waist measurement in cm.
     if data:
         recent_date = max(list(data['waist']))
-        print("Recent date: ", recent_date)
         return data['waist'][recent_date]
     else:
         print('Data not loaded.')
@@ -91,7 +85,6 @@ def get_current_shoulders():
     # Returns most recent waist measurement in cm.
     if data:
         recent_date = max(list(data['shoulders']))
-        print("Recent date: ", recent_date)
         return data['shoulders'][recent_date]
     else:
         print('Data not loaded.')
@@ -114,52 +107,41 @@ def add_record(date, measurement, where):
     # Update data if it exists, else add it.
     data[where][newdate] = newnum
     print('adding record...')
-    print(data)
     save_data()
     return True
 
 
-def berate_user(waist_height_ratio):
+def berate_user(waist_height_ratio, ai):
     """Encourages user to pursue goals."""
-    print("Your current Adonis Index is {:.2f}".format(adonis_index))
+    msg = ''
+    print("Your current Adonis Index is {:.2f}".format(ai))
     print(
         "Your current waist-to-height ratio is {:.2f}"
         .format(waist_height_ratio))
     if waist_height_ratio >= .53:
-        print("""
-    You're fat as fuck! Your health is at risk and you look disgusting!
-    You have the risk equivalent to BMI of 25!
-    Do something about it, fatty!
-        """)
+        msg = "You're fat as fuck! Your health is at risk and you look "\
+            + "disgusting!"\
+            + "You have the risk equivalent to BMI of 25!"\
+            + "Do something about it, fatty!"
     elif waist_height_ratio >= .51:
-        print("""
-    You're still fat! You still have risk equivalent to BMI of 25!
-    Lose more weight, fatso!
-        """)
+        msg = "You're still fat! You still have risk equivalent to BMI of 25!"\
+            + "Lose more weight, fatso!"
     elif waist_height_ratio >= .50:
-        print("""
-    You're still fat! Look at that gut! Gross!
-        """)
+        msg = "You're still fat! Look at that gut! Gross!"
     elif waist_height_ratio >= .49:
-        print("""
-    Better, but you're still too fat!
-        """)
+        msg = "Better, but you're still too fat!"
     elif waist_height_ratio >= .48:
-        print("""
-    You're getting there! Keep losing weight!
-        """)
+        msg = "You're getting there! Keep losing weight!"
     elif waist_height_ratio >= .47:
-        print("""
-    Looking good! But don't start pigging out yet!
-        """)
+        msg = "Looking good! But don't start pigging out yet!"
     else:
-        print("""
-    You are a god among men. Get more muscle, and don't get fat again!
-        """)
+        msg = "You are a god among men. Get more muscle, and don't get fat "\
+            + "again!"
+    return msg
 
 
 def main():
-
+    load_data()
     height = data['height']  # cm
     ideal_waist = int(height * WAIST_HEIGHT_RATIO)
     ideal_shoulders = int(height * WAIST_HEIGHT_RATIO * GOLDEN_RATIO)
@@ -216,6 +198,24 @@ def main():
         add_record(today, measurement, 'shoulders')
         print("Target waist size: {} in\nTarget shoulder size: {} in".format(
             cm_to_in(ideal_waist), cm_to_in(ideal_shoulders)))
+    else:
+        # No arguments given; print goals and most recent data
+        waist = get_current_waist()
+        shoulders = get_current_shoulders()
+        print('{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}')
+        print('{}          Measurements          {}')
+        print('{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}')
+        print('{}             Waist              {}')
+        print('{} Current:  {} cm, Goal:  {} cm  {}'.format(
+            '{}', waist, ideal_waist, '{}'))
+        print('{}--------------------------------{}')
+        print('{}            Shoulders           {}')
+        print('{} Current: {} cm, Goal: {} cm  {}'.format(
+            '{}', shoulders, ideal_shoulders, '{}'))
+        print('{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}')
+        msg = berate_user((waist/height), (shoulders/waist))
+        command = 'cowsay "' + msg + '"'
+        system(command)
 
 
 if __name__ == '__main__':

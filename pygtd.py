@@ -82,8 +82,12 @@ def empty(container):
 
 def process_inbox():
     keylist = list(data['inbox'].keys())
+    if len(keylist) == 0:
+        print('Your Inbox is empty!')
+        return False
     for index, key in enumerate(keylist, start=1):
         process_inbox_item(index, len(keylist), key)
+    return True
 
 
 def timer(duration):
@@ -126,7 +130,7 @@ def complete(id, container='actions'):
     return True
 
 
-def new_action(id=time()):
+def new_action(id):
     global data
     print("Next Action: What's the next thing you need to do to move toward "
           + "the desired outcome?\nVisualize yourself doing it and describe it "
@@ -231,6 +235,7 @@ def print_actions():
         print('Enter number followed by command [ie 1 d]:')
         print('(d)one, (t)rash, (e)dit, (q)uit')
         choice = input('> ').lower()
+        # TODO: parse input with regex; make space optional
         if 'q' in choice:
             print('Goodbye!')
             break
@@ -257,6 +262,35 @@ def print_actions():
         elif action == 'e':
             print('Not implimented')
             continue
+
+
+def process_projects():
+    global data
+    for project in data['projects']:
+        if not data['projects'][project]['next_actions']:
+            data['projects'][project]['next_actions'] = []
+        if len(data['projects'][project]['next_actions']) == 0:
+            print('=' * 80)
+            print('Project:', data['projects'][project]['text'])
+            print('=' * 80)
+            id = time()
+            new_action(id)
+            data['projects'][project]['next_actions'].append(str(id))
+            save_data()
+    print('\nDone processing projects!\n')
+
+
+def list_projects():
+    print('')
+    print('============')
+    print('| Projects |')
+    print('============')
+    for id in data['projects']:
+        print(data['projects'][id]['text'])
+        if not data['projects'][id]['next_actions']:
+            print('    No Next Action! Time to review projects!')
+        for action in data['projects'][id]['next_actions']:
+            print('  >', data['actions'][action])
 
 
 def daily_revew():
@@ -311,28 +345,41 @@ def main():
         '-i',
         '--inbox',
         action='store_true',
-        dest='inbox',
         help='Inbox'
     )
     parser.add_argument(
         '-n',
         '--next-actions',
+        dest='next_actions',
         action='store_true',
-        dest='next',
         help='Next Actions'
     )
     parser.add_argument(
         '-d',
         '--process-inbox',
+        dest='process_inbox',
         action='store_true',
         help='Process inbox. ("d" is for "daily".)'
     )
     parser.add_argument(
         '-q',
-        '--quick',
+        '--quick-add',
         dest='quick',
         action='store_true',
         help='Prompt for inbox for use with hotkey.'
+    )
+    parser.add_argument(
+        '-p',
+        '--process-projects',
+        dest='process_projects',
+        action='store_true',
+        help='Review project list and decide next actions.'
+    )
+    parser.add_argument(
+        '-l',
+        '--list',
+        action='store_true',
+        help='Modifies option to show list. Combine with -p.'
     )
 
     args = parser.parse_args()
@@ -349,8 +396,13 @@ def main():
     if args.process_inbox:
         process_inbox()
 
-    if args.next:
+    if args.next_actions:
         print_actions()
+
+    if args.process_projects and args.list:
+        list_projects()
+    elif args.process_projects:
+        process_projects()
 
 
 if __name__ == '__main__':
