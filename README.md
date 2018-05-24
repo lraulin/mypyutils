@@ -1,4 +1,4 @@
-# Command-line Getting Things Done App.
+# Command-line Getting Things Done App
 
 ## Usage
 
