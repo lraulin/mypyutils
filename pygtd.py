@@ -322,14 +322,6 @@ def main():
         help='Next Actions'
     )
     parser.add_argument(
-        # TODO: For testing! Remove, or add confirmation dialogue
-        '-e',
-        '--empty',
-        action='store_true',
-        dest='empty',
-        help='empty container'
-    )
-    parser.add_argument(
         '-d',
         '--process-inbox',
         action='store_true',
@@ -356,12 +348,6 @@ def main():
 
     if args.process_inbox:
         process_inbox()
-
-    if args.empty:
-        if container:
-            empty(container)
-        else:
-            print('Container to empty must be specified.')
 
     if args.next:
         print_actions()
