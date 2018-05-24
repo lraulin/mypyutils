@@ -2,8 +2,8 @@
 
 ## Usage
 
-pygtd.py new stuff for inbox
-pygtd.py -p # Process inbox
+pygtd.py new stuff for inbox\
+pygtd.py -p # Process inbox\
 pygtd.py -d # Review Next Actions
 
 ## Background
