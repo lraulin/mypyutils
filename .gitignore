@@ -1,5 +1,7 @@
 # User data files
 *.json
+*.csv
+*.db
 
 # Compiled python modules.
 *.pyc
