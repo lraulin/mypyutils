@@ -20,6 +20,7 @@ from inspect import currentframe, getframeinfo
 from pathlib import Path
 from operator import attrgetter
 from collections import OrderedDict
+from math import floor
 
 FILENAME = getframeinfo(currentframe()).filename
 PARENT = Path(FILENAME).resolve().parent
@@ -31,6 +32,32 @@ def timedif(then):
     """Returns time difference between now and Unix timestamp."""
     difsec = time() - then
     return round(difsec)
+
+
+def confirm_date_parse():
+    """Allows user to enter date in any format. Confirms date has been parsed
+    correctly before continuing. Return datetime object."""
+    ok = False
+    while not ok:
+        date = input("Date (and time, optional)\nAny format should work:\n> ")
+        date = parser.parse(date)
+        print("Date/Time: {}".format(str(date)))
+        isok = input("Ok? (y/n)").lower()
+        if 'y' in isok:
+            ok = True
+        else:
+            print("Let's try again...")
+    return date
+
+
+def center_print(title, pad='*', size=80):
+    """Prints word in center of line surrounded by ascii character. Ie
+    ******************************TITLE******************************"""
+    length = floor((size - len(title))/2)
+    text = (pad * length) + title + (pad * length)
+    if len(title) % 2 != 0:
+        text += pad
+    print(text)
 
 
 class Item:
@@ -64,6 +91,10 @@ class Inbox():
         for item in self.items:
             print(str(item.id) + ' ' + item.text)
 
+    def process(self):
+        for item in self.items:
+            pass
+
 
 class NextAction(Item):
     def __init__(self, text, context=None):
@@ -81,12 +112,23 @@ class NextActionList():
         for item in self.items:
             print(str(item.id), item.text)
 
+    def i_new_action(self):
+        # Interactively create a new Next Action and add it to the list.
+        print("Next Action: What's the next thing you need to do to move toward "
+              + "the desired outcome?\nVisualize yourself doing it and describe it "
+              + "in a sentence. Be specific. Ie not 'set up meeting', but 'pick up "
+              + "the phone and call X'.")
+        text = input("> ")
+        newitem = NextAction(text)
+        self.items.append(newitem)
+        print('Item added to Next Actions list.')
+
 
 class WaitingFor(Item):
-    def __init__(self, text, agent='', due=None):
+    def __init__(self, text, who='', due=None):
         Item.__init__(self)
         self.created = time()
-        self.agent = agent
+        self.who = who
         self.text = text
         self.due = due
 
@@ -95,16 +137,43 @@ class WaitingForList():
     def __init__(self, items=[]):
         self.items = items
 
+    def print(self):
+        today = datetime.datetime.today()
+        for item in self.items:
+            days = (item.due - today).days if item.due else None
+            text = item.text
+            if item.who:
+                text += ' from ' + item.who
+            if days:
+                text += ' in ' + days + ' days'
+            print(text)
+
+    def i_new_waiting_for(self):
+        print('Who are you waiting on to do this? (Press Enter to skip.)')
+        who = input('> ')
+        print('What are you waiting for?')
+        text = input('> ')
+        print('When do you expect it to happen?')
+        due = confirm_date_parse()
+        newitem = WaitingFor(text, who, due)
+        self.items.append(newitem)
+
 
 class Project(Item):
-    def __init__(self, text):
+    def __init__(self, text, short_name, next_actions=[]):
         Item.__init__(self)
         self.text = text
+        self.short_name = short_name
+        self.next_actions = next_actions
 
 
 class ProjectList():
-    def __init__(self, items):
+    def __init__(self, items=[]):
         self.items = items
+
+    def print(self):
+        for item in self.items:
+            print('[{}] {}'.format(item.short_name, item.text))
 
 
 class MaybeSomeday(Item):
@@ -133,23 +202,26 @@ class Calendar():
     def add(self, item):
         self.items.append(item)
 
-    def print_upcoming(self, days=30):
+    def print_upcoming(self, period=30):
+        """Prints all future calendar items within given number of days, the
+        date/time at which they occur, and the time between now and then."""
         today = datetime.datetime.today()
         self.items.sort(key=attrgetter('date'))
         for item in self.items:
-            date = item.date.strftime('%a, %b %d')
-            time = item.date.strftime('%I:%M%p')
-            if not time == '12:00AM':
-                date += ' ' + time
             delta = item.date - today
             days = delta.days
-            hours = round(delta.seconds / 3600)
-            print('{}: {} ({} days, {} hours)'.format(
-                date,
-                item.text,
-                days,
-                hours
-            ))
+            if days <= period:
+                date = item.date.strftime('%a, %b %d')
+                time = item.date.strftime('%I:%M%p')
+                if not time == '12:00AM':
+                    date += ' ' + time
+                hours = round(delta.seconds / 3600)
+                print('{}: {} ({} days, {} hours)'.format(
+                    date,
+                    item.text,
+                    days,
+                    hours
+                ))
         # TODO: test if date is within days or less in the future
 
 
@@ -158,93 +230,94 @@ class CompletedItemList():
         self.items = items
 
 
-d = {
-    'inbox': Inbox(),
-    'calendar': Calendar(),
-    'next_actions': NextActionList(),
-    'waiting_for': WaitingForList(),
-    'maybe_someday': MaybeSomedayList(),
-    'completed_items': CompletedItemList()
-}
+class GTD():
+    """Creates object responsible for holding all lists and handling interaction
+    between them."""
 
+    def __init__(self):
+        self.d = {
+            'inbox': Inbox(),
+            'calendar': Calendar(),
+            'next_actions': NextActionList(),
+            'waiting_for': WaitingForList(),
+            'projects': ProjectList(),
+            'maybe_someday': MaybeSomedayList(),
+            'completed_items': CompletedItemList()
+        }
 
-def import_json():
-    global d
-    with open(DATA_FILE, 'r') as file:
-        data = json.load(file)
+    def import_json(self):
+        with open(DATA_FILE, 'r') as file:
+            data = json.load(file)
 
-    # Import Inbox
-    for key, value in data['inbox'].items():
-        newitem = InboxItem(value)
-        newitem.created = key
-        d['inbox'].items.append(newitem)
+        # Import Inbox
+        for key, value in data['inbox'].items():
+            newitem = InboxItem(value)
+            newitem.created = key
+            self.d['inbox'].items.append(newitem)
 
-    # Import Next Actions
-    for key, value in data['actions'].items():
-        newitem = NextAction(value)
-        newitem.created = key
-        d['next_actions'].items.append(newitem)
+        # Import Next Actions
+        for key, value in data['actions'].items():
+            newitem = NextAction(value)
+            newitem.created = key
+            self.d['next_actions'].items.append(newitem)
 
-    # Import Calendar
-    for key, value in data['scheduled'].items():
-        date = parser.parse(value['date'])
-        newitem = CalendarItem(date, value['text'])
-        newitem.created = key
-        d['calendar'].add(newitem)
+        # Import Calendar
+        for key, value in data['scheduled'].items():
+            date = parser.parse(value['date'])
+            newitem = CalendarItem(date, value['text'])
+            newitem.created = key
+            self.d['calendar'].add(newitem)
 
-    # Import Waiting For
-    for key, value in data['waiting'].items():
-        newitem = WaitingFor(value)
-        newitem.created = key
-        d['waiting_for'].items.append(newitem)
+        # Import Waiting For
+        for key, value in data['waiting'].items():
+            newitem = WaitingFor(value)
+            newitem.created = key
+            self.d['waiting_for'].items.append(newitem)
 
-    # Import Completed Items
-    for key, value in data['completed'].items():
-        newitem = NextAction(value['text'])
-        newitem.created = key
-        newitem.completed = value['completion_date']
-        d['completed_items'].items.append(newitem)
+        # Import Projects
+        for key, value in data['projects'].items():
+            newitem = Project(
+                value['text'], value['short_name'], value['next_actions'])
+            newitem.created = key
+            self.d['projects'].items.append(newitem)
 
-    test = ''
-    with shelve.open('pygtdshelf') as file:
-        test = file['test']
+        # Import Completed Items
+        for key, value in data['completed'].items():
+            newitem = NextAction(value['text'])
+            newitem.created = key
+            newitem.completed = value['completion_date']
+            self.d['completed_items'].items.append(newitem)
 
-    print(test)
+    def jpickle(self):
+        frozen = jsonpickle.encode(self.d)
+        with open(PICKLE_FILE, 'w') as file:
+            json.dump(frozen, file, indent=2)
 
+    def junpickle(self):
+        with open(PICKLE_FILE, 'r') as file:
+            frozen = json.load(file)
+            self.d = jsonpickle.decode(frozen)
 
-def jpickle():
-    frozen = jsonpickle.encode(d)
-    with open(PICKLE_FILE, 'w') as file:
-        json.dump(frozen, file, indent=2)
-
-
-def junpickle():
-    global d
-    with open(PICKLE_FILE, 'r') as file:
-        frozen = json.load(file)
-        d = jsonpickle.decode(frozen)
-
-
-def get_ids():
-    # For testing
-    ids = []
-    for item in d.values():
-        for subitem in item.values():
-            if subitem.id:
-                ids.append(subitem.id)
-    print(ids)
+    def print_overview(self):
+        center_print('INBOX')
+        self.d['inbox'].print()
+        center_print('CALENDAR')
+        self.d['calendar'].print_upcoming()
+        center_print('NEXT ACTIONS')
+        self.d['next_actions'].print()
+        center_print('WAITING FOR')
+        self.d['waiting_for'].print()
+        center_print('PROJECTS')
+        self.d['projects'].print()
+        print()
 
 
 def main():
-    junpickle()
-    print('********INBOX*********')
-    d['inbox'].print()
-    print('*******CALENDAR*******')
-    d['calendar'].print_upcoming(30)
-    print('*****NEXT ACTIONS*****')
-    d['next_actions'].print()
-    print()
-    jpickle()
+    gtd = GTD()
+    # gtd.junpickle()
+    gtd.import_json()
+    gtd.print_overview()
+    # gtd.jpickle()
 
 
 if __name__ == '__main__':
