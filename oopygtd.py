@@ -92,8 +92,20 @@ class Inbox():
             print(str(item.id) + ' ' + item.text)
 
     def process(self):
+        """Interactively process each Inbox item."""
         for item in self.items:
+            # TODO
             pass
+
+    def quickadd(self):
+        """Creates a prompt to add new Inbox item. For use with global keyboard
+        shortcut to create popup terminal for rapid task entry."""
+        text = input('INBOX> ')
+        self.add(text)
+
+    def paste(self):
+        """Save clipboard contents as new Inbox item."""
+        self.add(pyperclip.paste())
 
 
 class NextAction(Item):
@@ -141,11 +153,11 @@ class WaitingForList():
         today = datetime.datetime.today()
         for item in self.items:
             days = (item.due - today).days if item.due else None
-            text = item.text
+            text = '...' + item.text
             if item.who:
                 text += ' from ' + item.who
             if days:
-                text += ' in ' + days + ' days'
+                text += ' in ' + str(days) + ' days'
             print(text)
 
     def i_new_waiting_for(self):
@@ -216,7 +228,7 @@ class Calendar():
                 if not time == '12:00AM':
                     date += ' ' + time
                 hours = round(delta.seconds / 3600)
-                print('{}: {} ({} days, {} hours)'.format(
+                print('{{{}}} {} ({} days, {} hours)'.format(
                     date,
                     item.text,
                     days,
@@ -270,7 +282,8 @@ class GTD():
 
         # Import Waiting For
         for key, value in data['waiting'].items():
-            newitem = WaitingFor(value)
+            date = parser.parse(value['due'])
+            newitem = WaitingFor(value['text'], value['who'], date)
             newitem.created = key
             self.d['waiting_for'].items.append(newitem)
 
@@ -313,11 +326,40 @@ class GTD():
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-i',
+        '--inbox',
+        nargs='+',
+        action='store',
+        help='Add text to new Inbox item.'
+    )
+    parser.add_argument(
+        '-o',
+        '--overview',
+        action='store_true',
+        help='Print lists to terminal.'
+    )
+    parser.add_argument(
+        '-P',
+        '--paste',
+        action='store_true',
+        help='Adds contents of clipboard as new Inbox item.'
+    )
+    args = parser.parse_args()
     gtd = GTD()
-    # gtd.junpickle()
-    gtd.import_json()
-    gtd.print_overview()
-    # gtd.jpickle()
+    gtd.junpickle()
+
+    if args.inbox:
+        text = ' '.join(args.inbox)
+        gtd.d['inbox'].add(text)
+    if args.paste:
+        gtd.d['inbox'].paste()
+    if args.overview:
+        gtd.print_overview()
+
+    # gtd.import_json()
+    gtd.jpickle()
 
 
 if __name__ == '__main__':

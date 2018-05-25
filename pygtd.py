@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+"""This is now the rough draft/proof-of-concept."""
+
 import argparse
 import json
 import pyperclip
