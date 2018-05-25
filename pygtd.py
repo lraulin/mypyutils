@@ -4,9 +4,10 @@ import argparse
 import json
 import pyperclip
 import datetime
+import re
 from os import path
 from time import time, sleep
-from sys import stdout
+from sys import stdout, argv, exit
 from dateutil import parser
 from inspect import currentframe, getframeinfo
 from pathlib import Path
@@ -58,12 +59,25 @@ def save_data():
         json.dump(data, file)
 
 
+def days_remaining(date_string):
+    future_date = parser.parse(date_string)
+    delta = future_date - datetime.datetime.now()
+    return delta.days
+
+
 def add_to_inbox(text):
     global data
     time_stamp = time()
     data['inbox'][time_stamp] = text
     save_data()
     print('Item added to inbox: {}'.format(text))
+
+
+def file_to_inbox():
+    """Add each line of a plain text file as a new Inbox item."""
+    with open(argv[1], 'r') as f:
+        for line in f:
+            add_to_inbox(line)
 
 
 def empty(container):
@@ -110,7 +124,6 @@ def timer(duration):
 
 
 def delete_from_inbox(id, container='inbox'):
-    # TODO: refactor to delete any item
     del data[container][id]
     save_data()
     print('Item removed from ' + container + '.')
@@ -232,36 +245,45 @@ def print_actions():
         print('\nNext Actions:')
         for i, key in enumerate(keylist):
             print('  ' + str(i) + ' ' + data['actions'][key])
-        print('Enter number followed by command [ie 1 d]:')
-        print('(d)one, (t)rash, (e)dit, (q)uit')
+        print(
+            'Enter number (if appropriate) followed by command [ie 1 d, 5t]:')
+        print('(#d)one, (#t)rash, (#e)dit, (q)uit')
         choice = input('> ').lower()
-        # TODO: parse input with regex; make space optional
-        if 'q' in choice:
+        re_num = re.compile(r'\d*')
+        re_char = re.compile('[a-z]')
+        num = re_num.search(choice)
+        num = num.group()
+        action = re_char.search(choice)
+        if num:
+            num = int(num)
+        if action:
+            action = action.group()
+        if 'q' == action:
             print('Goodbye!')
             break
-        choice = choice.split()
-        try:
-            numchoice = int(choice[0])
-        except ValueError:
-            print('Invalid input.')
-            continue
-        if numchoice >= len(keylist):
+        if num and num >= len(keylist):
             print('Value out of range.')
             continue
-        action = choice[1][0]
         if action == 't':
-            print('Delete task: ' + data['actions'][keylist[numchoice]])
+            print('Delete task: ' + data['actions'][keylist[num]])
             confdelete = input('(y/n)').lower()
             if 'y' in confdelete:
-                delete_from_inbox(keylist[numchoice])
+                delete_from_inbox(keylist[num])
             else:
                 continue
         elif action == 'd':
-            complete(keylist[numchoice])
+            complete(keylist[num])
             continue
         elif action == 'e':
             print('Not implimented')
             continue
+        else:
+            print('Invalid input')
+            continue
+
+
+# def print_calendar():
+    # for item in data['schedule']:
 
 
 def process_projects():
@@ -381,6 +403,13 @@ def main():
         action='store_true',
         help='Modifies option to show list. Combine with -p.'
     )
+    parser.add_argument(
+        '-f',
+        '--import-file',
+        dest='import_file',
+        action='store_true',
+        help='Add each line in plain text file as new Inbox item.'
+    )
 
     args = parser.parse_args()
     text = ' '.join(args.input) if args.input else pyperclip.paste()
@@ -403,6 +432,9 @@ def main():
         list_projects()
     elif args.process_projects:
         process_projects()
+
+    if args.import_file:
+        file_to_inbox()
 
 
 if __name__ == '__main__':
