@@ -106,23 +106,23 @@ def process_inbox():
     return True
 
 
-def timer(duration):
-    seconds = duration % 60
-    minutes = round(duration / 60)
-
+def timer(seconds):
     while True:
         try:
-            stdout.write("\r{minutes}:{seconds}".format(
-                minutes=minutes, seconds=seconds))
-            stdout.flush()
+            print('       ', end='\r', flush=True)
+            print('  ' + str(seconds), end='\r', flush=True)
             sleep(1)
-            if seconds >= 0:
-                minutes -= 1
-                seconds = 60
+            seconds -= 1
+            if seconds < 0:
+                break
         except KeyboardInterrupt:
             break
     print("Time's up!")
     # TODO: add alarm sound
+
+
+timer(10)
+exit()
 
 
 def delete_from_inbox(id, container='inbox'):
