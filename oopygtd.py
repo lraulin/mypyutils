@@ -173,14 +173,14 @@ class WaitingForList():
                 text += ' in ' + str(days) + ' days'
             print(text)
 
-    def i_new_item(self):
+    def i_new_item(self, created=None):
         print('Who are you waiting on to do this? (Press Enter to skip.)')
         who = input('> ')
         print('What are you waiting for?')
         text = input('> ')
         print('When do you expect it to happen?')
         due = confirm_date_parse()
-        newitem = WaitingFor(text, who, due)
+        newitem = WaitingFor(text, who, due, created)
         self.items.append(newitem)
         print('New item added to Waiting For list.')
 
@@ -224,6 +224,7 @@ class MaybeSomedayList():
 
     def add(self, text, created=None):
         newitem = MaybeSomeday(text, created=created)
+        self.items.append(newitem)
 
 
 class CalendarItem(Item):
@@ -252,6 +253,7 @@ class Calendar():
             if 'y' in isok:
                 ok = True
         newitem = CalendarItem(when, text, created)
+        self.items.append(newitem)
         print('New item added to Calendar.')
 
     def print_upcoming(self, period=30):
@@ -391,7 +393,7 @@ class GTD():
                                + "> ").lower()
             if 'a' in actionable:
                 # Create new Next Action
-                self.d['next_actions'].i_new_action(item.created)
+                self.d['next_actions'].i_new_item(item.created)
                 inbox.popleft()
             elif 'd' in actionable:
                 # Complete task now in 2 minutes
@@ -412,11 +414,9 @@ class GTD():
                 continue
             elif 'w' in actionable:
                 # Create new Waiting For item
-                try:
-                    self.d['waiting_for'].i_new_waiting_for(
-                        created=item.created)
-                    inbox.popleft()
-                    continue
+                self.d['waiting_for'].i_new_item(item.created)
+                inbox.popleft()
+                continue
             elif 'p' in actionable:
                 # Create new Project
                 self.d['projects'].i_new_item(item.created)
