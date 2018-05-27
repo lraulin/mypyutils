@@ -21,12 +21,34 @@ from pathlib import Path
 from operator import attrgetter
 from collections import deque
 from math import floor
+import pyrebase
+import secrets
 
-# Ensure filepath for data files is in module directory regardless of cwd.
+# Ensure filepath for data files is in module directory regardless of cwd. Ie
+# if setting a keyboard shortcut to open a terminal and run program
+# with option to create prompt for inbox entry. Took me a while to figure out
+# it was looking for the data file in ~/
 FILENAME = getframeinfo(currentframe()).filename
 PARENT = Path(FILENAME).resolve().parent
 DATA_FILE = PARENT / 'pygtd.json'
 PICKLE_FILE = PARENT / 'pickle.json'
+
+# Firebase
+SERVICE_ACCOUNT_CREDENTIALS = PARENT / 'pygtd-7b396b5dc2be.json'
+
+config = {
+    "apiKey": secrets.apiKey,
+    "authDomain": "pygtd-b8b3d.firebaseapp.co",
+    "databaseURL": "https://pygtd-b8b3d.firebaseio.com",
+    "storageBucket": "pygtd-b8b3d.appspot.com",
+    "serviceAccount": SERVICE_ACCOUNT_CREDENTIALS
+}
+
+firebase = pyrebase.initialize_app(config)
+auth = firebase.auth()  # authenticate a user
+user = auth.sign_in_with_email_and_password(
+    secrets.email, secrets.password)
+db = firebase.database()
 
 
 def timedif(then):
@@ -57,7 +79,7 @@ def confirm_date_parse():
 
 
 def center_print(title, pad='*', size=80):
-    """Print word in center of line surrounded by specified character. 
+    """Print word in center of line surrounded by specified character.
 
     For printing titles. Ie:
     ******************************TITLE******************************
@@ -72,6 +94,7 @@ def center_print(title, pad='*', size=80):
 
 def timer(seconds):
     """Display countdown for specified time."""
+
     # TODO: add alarm sound
     while True:
         try:
@@ -88,9 +111,6 @@ def timer(seconds):
 
 class Item:
     """Create item base class."""
-    id_count = 0  # Was meant to provide each item a unique id number.
-    # It's not currently used for anything, and the timestamp can serve the
-    # purpose if necessary. May be discarded in the future.
 
     def __init__(self, created=None):
         """Initialize item.
@@ -99,8 +119,6 @@ class Item:
 
         """
 
-        self.__class__.id_count += 1
-        self.id = self.__class__.id_count
         self.created = created if created else time()
         self.completed = None
 
@@ -120,6 +138,7 @@ class InboxItem(Item):
 
     def __init__(self, text, created=None):
         """Initialize Inbox item."""
+
         Item.__init__(self, created)
         self.text = text
 
@@ -128,21 +147,26 @@ class Inbox():
     """Create Inbox container object.
 
     Stores collection of Inbox items and associated actions. Dequeue is used
-    as most common operation will be FIFO processing of items."""
+    as most common operation will be FIFO processing of items.
+
+    """
 
     def __init__(self, items=deque()):
         """Initialize queue for Inbox items."""
+
         self.items = items
 
     def add(self, text):
         """Add new Inbox item."""
+
         item = InboxItem(text)
         self.items.append(item)
 
     def print(self):
         """Print Inbox item."""
+
         for item in self.items:
-            print(str(item.id) + ' ' + item.text)
+            print(item.text)
 
     def quickadd(self):
         """Display a prompt to add new Inbox item.
@@ -184,7 +208,7 @@ class NextActionList():
     def print(self):
         """Print Next Action."""
         for item in self.items:
-            print(str(item.id), item.text)
+            print(item.text)
 
     def i_new_item(self, created=None):
         """Create new item with interactive prompt."""
@@ -206,13 +230,13 @@ class WaitingFor(Item):
 
     """
 
-    def __init__(self, text, who='', due=None, created=None):
+    def __init__(self, text, who='', when=None, created=None):
         """Initialize Waiting For item."""
         Item.__init__(self, created)
         self.created = time()
         self.who = who
         self.text = text
-        self.due = due
+        self.when = when
 
 
 class WaitingForList():
@@ -227,7 +251,7 @@ class WaitingForList():
 
         today = datetime.datetime.today()
         for item in self.items:
-            days = (item.due - today).days if item.due else None
+            days = (item.when - today).days if item.when else None
             text = '...' + item.text
             if item.who:
                 text += ' from ' + item.who
@@ -259,10 +283,10 @@ class Project(Item):
 
     """
 
-    def __init__(self, text, short_name, next_actions=[], created=None):
+    def __init__(self, text, title, next_actions=[], created=None):
         Item.__init__(self, created)
         self.text = text
-        self.short_name = short_name
+        self.title = title
         self.next_actions = next_actions
 
 
@@ -275,7 +299,7 @@ class ProjectList():
 
     def print(self):
         for item in self.items:
-            print('[{}] {}'.format(item.short_name, item.text))
+            print('[{}] {}'.format(item.title, item.text))
             # TODO: print next action
 
     def i_new_item(self, created=None):
@@ -319,7 +343,7 @@ class MaybeSomedayList():
 class CalendarItem(Item):
     """Create Calendar item.
 
-    Used for events, appointments, deadlines, or other items associated with a 
+    Used for events, appointments, deadlines, or other items associated with a
     specific future date/time.
 
     """
@@ -470,6 +494,7 @@ class GTD():
 
     def jpickle(self):
         """Encode objects and store in JSON file."""
+
         # No JSON formatter can make sense of the file, so I'm not sure what
         # the advantage is vs. binary storage, but it does the trick.
         frozen = jsonpickle.encode(self.d)
@@ -481,13 +506,171 @@ class GTD():
 
         From jsonpickle docs:
 
-        WARNING: Jsonpickle can execute arbitrary Python code. Do not load 
+        WARNING: Jsonpickle can execute arbitrary Python code. Do not load
         jsonpickles from untrusted / unauthenticated sources.
 
         """
         with open(PICKLE_FILE, 'r') as file:
             frozen = json.load(file)
             self.d = jsonpickle.decode(frozen)
+
+    def fb_export(self):
+        """Save all data to Firebase.
+
+        Overwrite each node (inbox, etc) with current data so deletions will be
+        reflected.
+
+        """
+        inbox = {}
+        for item in self.d['inbox'].items:
+            id = str(item.created).replace('.', '-')
+            record = {'text': item.text}
+            inbox[id] = record
+        db.child('inbox').set(inbox, user['idToken'])
+
+        next_actions = {}
+        for item in self.d['next_actions'].items:
+            id = str(item.created).replace('.', '-')
+            record = {'text': item.text}
+            next_actions[id] = record
+        db.child('next_actions').set(next_actions, user['idToken'])
+
+        waiting_for = {}
+        for item in self.d['waiting_for'].items:
+            id = str(item.created).replace('.', '-')
+            record = {'text': item.text}
+            try:
+                record['who'] = item.who
+            except AttributeError:
+                pass
+            try:
+                record['when'] = str(item.when)
+            except AttributeError:
+                pass
+            try:
+                record['when'] = str(item.due)
+            except AttributeError:
+                pass
+            waiting_for[id] = record
+        db.child('waiting_for').set(waiting_for, user['idToken'])
+
+        projects = {}
+        for item in self.d['projects'].items:
+            id = str(item.created).replace('.', '-')
+            record = {
+                'text': item.text,
+                'next_actions': item.next_actions
+            }
+            try:
+                record['title'] = item.title
+            except AttributeError:
+                try:
+                    record['title'] = item.short_name
+                except AttributeError:
+                    pass
+            projects[id] = record
+        db.child('projects').set(projects, user['idToken'])
+
+        calendar = {}
+        for item in self.d['calendar'].items:
+            id = str(item.created).replace('.', '-')
+            record = {'text': item.text, 'date': str(item.date)}
+            calendar[id] = record
+        db.child('calendar').set(calendar, user['idToken'])
+
+        maybe_someday = {}
+        for item in self.d['maybe_someday'].items:
+            id = str(item.created).replace('.', '-')
+            record = {'text': item.text}
+            maybe_someday[id] = record
+        db.child('maybe_someday').set(maybe_someday, user['idToken'])
+
+        completed_items = {}
+        for item in self.d['completed_items'].items:
+            id = str(item.created).replace('.', '-')
+            text = item.text
+            try:
+                text += ' from ' + item.who
+            except (AttributeError, TypeError):
+                pass
+            try:
+                text += ' by ' + str(item.when)
+            except (AttributeError, TypeError):
+                pass
+            try:
+                text = str(item.date) + text
+            except (AttributeError, TypeError):
+                pass
+            try:
+                text += ' @' + item.context
+            except (AttributeError, TypeError):
+                pass
+            record = {'text': item.text,
+                      'completed': str(item.completed)}
+            completed_items[id] = record
+        db.child('completed_items').set(completed_items, user['idToken'])
+
+    def fb_import(self):
+        """Load all data from Firebase."""
+
+        # data = db.get(user['idToken']).val()
+        # export_file = PARENT / 'export.json'
+        # with open(export_file, 'w') as f:
+        #     json.dump(data, f)
+
+        data = {}
+        import_file = PARENT / 'export.json'
+        with open(import_file, 'r') as f:
+            data = json.load(f)
+
+        # Import Inbox
+        for key, value in data['inbox'].items():
+            newitem = InboxItem(value['text'])
+            newitem.created = float(key.replace('-', '.'))
+            self.d['inbox'].items.append(newitem)
+
+        # Import Next Actions
+        for key, value in data['next_actions'].items():
+            newitem = NextAction(value['text'])
+            newitem.created = float(key.replace('-', '.'))
+            self.d['next_actions'].items.append(newitem)
+
+        # Import Calendar
+        for key, value in data['calendar'].items():
+            date = parser.parse(value['date'])
+            newitem = CalendarItem(date, value['text'])
+            newitem.created = float(key.replace('-', '.'))
+            self.d['calendar'].add(newitem)
+
+        # Import Waiting For
+        for key, value in data['waiting_for'].items():
+            date = parser.parse(value['when'])
+            newitem = WaitingFor(value['text'], value['who'], date)
+            newitem.created = float(key.replace('-', '.'))
+            self.d['waiting_for'].items.append(newitem)
+
+        # Import Projects
+        for key, value in data['projects'].items():
+            newitem = Project(
+                value['text'], value['title'], value['next_actions'])
+            newitem.created = float(key.replace('-', '.'))
+            self.d['projects'].items.append(newitem)
+
+        # Import Maybe Someday
+        try:
+            for key, value in data['maybe_someday'].items():
+                newitem = InboxItem(value['text'])
+                newitem.created = float(key.replace('-', '.'))
+                self.d['maybe_someday'].items.append(newitem)
+        except KeyError:
+            pass
+
+        # Import Completed Items
+        for key, value in data['completed_items'].items():
+            newitem = NextAction(value['text'])
+            newitem.created = float(key.replace('-', '.'))
+            newitem.completed = value['completed']
+            self.d['completed_items'].items.append(newitem)
 
     def print_overview(self):
         """Call the print methods for container objects."""
@@ -505,16 +688,15 @@ class GTD():
         print()
 
     def process_inbox(self):
-        """Display interactive prompts for user to process inbox items.
+        """Display interactive prompts for user to process inbox items."""
 
-        FIFO. For each item, the user will be guided
-        by interactive prompts to create a new item based on inbox item. New
-        item will be given same timestamp as the inbox item. (Conceptually, the
-        item is being 'moved' or 'changed'.) When item is successfully
-        processed, it will be dequeued (removed), and loop will continue with
-        next (now first) item in queue. Loop until no items are left.
+        # FIFO. For each item, the user will be guided
+        # by interactive prompts to create a new item based on inbox item. New
+        # item will be given same timestamp as the inbox item. (Conceptually, the
+        # item is being 'moved' or 'changed'.) When item is successfully
+        # processed, it will be dequeued (removed), and loop will continue with
+        # next (now first) item in queue. Loop until no items are left.
 
-        """
         inbox = self.d['inbox'].items
         while len(inbox):
             item = inbox[0]
@@ -611,14 +793,14 @@ def main():
     # instantiate object responsible for data
     gtd = GTD()
 
-    # load data from file
-    # gtd.import_json()
-    gtd.junpickle()
+    # load data
+    gtd.fb_import()
 
     if args.inbox:  # -i, --inbox
         # add text entered at CLI to inbox
         text = ' '.join(args.inbox)
         gtd.d['inbox'].add(text)
+        print('"{}" added to inbox.'.format(text))
     if args.paste:  # -P, --paste
         # add clipboard contents to inbox
         gtd.d['inbox'].paste()
@@ -627,7 +809,7 @@ def main():
         gtd.print_overview()
 
     # save data to file
-    gtd.jpickle()
+    gtd.fb_export()
 
 
 if __name__ == '__main__':
