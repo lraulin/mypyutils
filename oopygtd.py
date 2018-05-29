@@ -24,6 +24,8 @@ from math import floor
 import pyrebase
 import secrets
 from quickstart import get_events, save_event
+from copy import deepcopy
+import pprint
 
 # Ensure filepath for data files is in module directory regardless of cwd.
 FILENAME = getframeinfo(currentframe()).filename
@@ -107,40 +109,6 @@ def timer(seconds):
     print("Time's up!")
 
 
-class Item:
-    """Create item base class."""
-
-    def __init__(self, created=None):
-        """Initialize item.
-
-        Assign timestamp if provided. Otherwise create timestamp now.
-
-        """
-
-        self.created = created if created else time()
-        self.completed = None
-
-    def age(self):
-        """Return difference between now and item's timestamp in seconds."""
-
-        return timedif(self.created)
-
-
-class InboxItem(Item):
-    """Create Inbox item.
-
-    Basically just a line of text to store ideas about things might need or
-    want to do something about.
-
-    """
-
-    def __init__(self, text, created=None):
-        """Initialize Inbox item."""
-
-        Item.__init__(self, created)
-        self.text = text
-
-
 class Inbox():
     """Create Inbox container object.
 
@@ -149,22 +117,24 @@ class Inbox():
 
     """
 
-    def __init__(self, items=deque()):
+    def __init__(self, items={}):
         """Initialize queue for Inbox items."""
 
         self.items = items
 
-    def add(self, text):
+    def add(self, text, created=None):
         """Add new Inbox item."""
-        id = str(time()).replace('.', '-')
-        item = {'text': text}
-        db.child('inbox').child(id).set(item, user['idToken'])
+        created = created or str(time()).replace('.', '-')
+        item = {
+            'text': text,
+        }
+        self.items[created] = item
 
     def print(self):
         """Print Inbox item."""
 
-        for item in self.items:
-            print(item.text)
+        for _, item in self.items.items():
+            print(item['text'])
 
     def quickadd(self):
         """Display a prompt to add new Inbox item.
@@ -180,33 +150,24 @@ class Inbox():
         self.add(pyperclip.paste())
 
 
-class NextAction(Item):
-    """Create Next Action.
-
-    Basically todos. Should contain a description of a specific physical
-    action you must perform.
-
-    """
-
-    def __init__(self, text, context=None, created=None):
-        Item.__init__(self, created)
-        self.text = text
-        # contexts not yet implimented as I personally have only one context
-        # at the moment.
-        self.context = context
-
-
 class NextActionList():
     """Create Next Action container."""
 
-    def __init__(self, items=[]):
+    def __init__(self, items={}):
         """Initialize list for Next Actions."""
         self.items = items
 
+    def add(self, text, created):
+        created = created or str(time()).replace('.', '-')
+        newitem = {
+            'text': text
+        }
+        self.items[created] = newitem
+
     def print(self):
         """Print Next Action."""
-        for item in self.items:
-            print(item.text)
+        for _, item in self.items.items():
+            print(item['text'])
 
     def i_new_item(self, created=None):
         """Create new item with interactive prompt."""
@@ -215,44 +176,40 @@ class NextActionList():
               + "in a sentence. Be specific. Ie not 'set up meeting', but 'pick up "
               + "the phone and call X'.")
         text = input("> ")
-        newitem = NextAction(text, created)
-        self.items.append(newitem)
+        self.add(text, created)
         print('New item added to Next Actions list.')
-
-
-class WaitingFor(Item):
-    """Create WaitingFor item.
-
-    Todos that you are waiting for someone else to do, or something that you
-    are waiting to happen before you can move forward on something else.
-
-    """
-
-    def __init__(self, text, who='', when=None, created=None):
-        """Initialize Waiting For item."""
-        Item.__init__(self, created)
-        self.created = time()
-        self.who = who
-        self.text = text
-        self.when = when
 
 
 class WaitingForList():
     """Create Waiting For item container."""
 
-    def __init__(self, items=[]):
+    def __init__(self, items={}):
         """Initialize list for Waiting For items."""
         self.items = items
+
+    def add(self, text, who=None, due=None, created=None):
+        created = created or str(time()).replace('.', '-')
+        try:
+            due = due.isoformat()
+        except TypeError:
+            pass
+        newitem = {
+            'text': text,
+            'who': who,
+            'due': due,
+        }
+        self.items[created] = newitem
 
     def print(self):
         """Print Waiting For items."""
 
         today = datetime.datetime.today()
-        for item in self.items:
-            days = (item.when - today).days if item.when else None
-            text = '...' + item.text
-            if item.who:
-                text += ' from ' + item.who
+        for _, item in self.items.items():
+            date = parser.parse(item['due'])
+            days = (date - today).days if date else None
+            text = '...' + item['text']
+            if item['who']:
+                text += ' from ' + item['who']
             if days:
                 text += ' in ' + str(days) + ' days'
             print(text)
@@ -266,38 +223,29 @@ class WaitingForList():
         text = input('> ')
         print('When do you expect it to happen?')
         due = confirm_date_parse()
-        newitem = WaitingFor(text, who, due, created)
-        self.items.append(newitem)
+        self.add(text, who, due, created)
         print('New item added to Waiting For list.')
-
-
-class Project(Item):
-    """Create Project.
-
-    For desired outcomes/multistep todos/goals. Should contain a specific
-    description of outcome/what counts as 'done'. Each should be associated with
-    at least one Next Action--the very next specific physical action necessary
-    to move forward to the desired outcome.
-
-    """
-
-    def __init__(self, text, title, next_actions=[], created=None):
-        Item.__init__(self, created)
-        self.text = text
-        self.title = title
-        self.next_actions = next_actions
 
 
 class ProjectList():
     """Create container for Project items."""
 
-    def __init__(self, items=[]):
+    def __init__(self, items={}):
         """Initialize ProjectList."""
         self.items = items
 
+    def add(self, text, title=None, created=None, next_actions=[]):
+        created = created or str(time()).replace('.', '-')
+        newitem = {
+            'text': text,
+            'title': title,
+            'next_actions': next_actions
+        }
+        self.items.append(newitem)
+
     def print(self):
-        for item in self.items:
-            print('[{}] {}'.format(item.title, item.text))
+        for _, item in self.items.items():
+            print('[{}] {}'.format(item['title'], item['text']))
             # TODO: print next action
 
     def i_new_item(self, created=None):
@@ -306,50 +254,27 @@ class ProjectList():
         text = input("Project: What's the desired outcome? What are you committed "
                      + "to accomplishing or finishing about this? What would 'done'"
                      + " look like?\n> ")
-        short_name = input("Short name: ")
-        newitem = Project(text, short_name, created=created)
-        self.items.append(newitem)
+        title = input("Short name: ")
+        self.add(text, title, created)
         print('New Project added to Projects list.')
-
-
-class MaybeSomeday(Item):
-    """Create Maybe Someday item.
-
-    Ideas about things to maybe do someday/todos you are not fully committed
-    to doing but might want to reconsider in the future. Can be created from
-    inbox text without modification.
-
-    """
-
-    def __init__(self, text, category='', created=None):
-        Item.__init__(self, created)
-        self.text = text
-        self.category = category
 
 
 class MaybeSomedayList():
     """Container for MaybeSomeday items."""
 
-    def __init__(self, items=[]):
+    def __init__(self, items={}):
         self.items = items
 
     def add(self, text, created=None):
-        newitem = MaybeSomeday(text, created=created)
-        self.items.append(newitem)
+        created = created or str(time()).replace('.', '-')
+        newitem = {
+            'text': text,
+        }
+        self.items[created] = newitem
 
-
-class CalendarItem(Item):
-    """Create Calendar item.
-
-    Used for events, appointments, deadlines, or other items associated with a
-    specific future date/time.
-
-    """
-
-    def __init__(self, date, text, created=None):
-        Item.__init__(self, created)
-        self.date = date
-        self.text = text
+    def print(self):
+        for _, item in self.items.items():
+            print(item['text'])
 
 
 class Calendar():
@@ -424,8 +349,20 @@ class CompletedItemList():
 
     """
 
-    def __init__(self, items=[]):
+    def __init__(self, items={}):
         self.items = items
+
+    def add(self, text, completed, created=None):
+        created = created or str(time()).replace('.', '-')
+        newitem = {
+            'text': text,
+            'completed': completed,
+        }
+        self.items[created] = newitem
+
+    def print(self):
+        for _, item in self.item.items():
+            print(item['text'])
 
 
 class GTD():
@@ -449,258 +386,66 @@ class GTD():
             'completed_items': CompletedItemList()
         }
 
-    def import_json(self):
-        """Import data from human-readable JSON file used in app prototype."""
-
-        with open(DATA_FILE, 'r') as file:
-            data = json.load(file)
-
-        # Import Inbox
-        for key, value in data['inbox'].items():
-            newitem = InboxItem(value)
-            newitem.created = key
-            self.d['inbox'].items.append(newitem)
-
-        # Import Next Actions
-        for key, value in data['actions'].items():
-            newitem = NextAction(value)
-            newitem.created = key
-            self.d['next_actions'].items.append(newitem)
-
-        # Import Calendar
-        for key, value in data['scheduled'].items():
-            date = parser.parse(value['date'])
-            newitem = CalendarItem(date, value['text'])
-            newitem.created = key
-            self.d['calendar'].add(newitem)
-
-        # Import Waiting For
-        for key, value in data['waiting'].items():
-            date = parser.parse(value['due'])
-            newitem = WaitingFor(value['text'], value['who'], date)
-            newitem.created = key
-            self.d['waiting_for'].items.append(newitem)
-
-        # Import Projects
-        for key, value in data['projects'].items():
-            newitem = Project(
-                value['text'], value['short_name'], value['next_actions'])
-            newitem.created = key
-            self.d['projects'].items.append(newitem)
-
-        # Import Completed Items
-        for key, value in data['completed'].items():
-            newitem = NextAction(value['text'])
-            newitem.created = key
-            newitem.completed = value['completion_date']
-            self.d['completed_items'].items.append(newitem)
-
-    def jpickle(self):
-        """Encode objects and store in JSON file."""
-
-        # No JSON formatter can make sense of the file, so I'm not sure what
-        # the advantage is vs. binary storage, but it does the trick.
-        frozen = jsonpickle.encode(self.d)
-        with open(PICKLE_FILE, 'w') as file:
-            json.dump(frozen, file, indent=2)
-
-    def junpickle(self):
-        """Restore encoded objects from JSON file.
-
-        From jsonpickle docs:
-
-        WARNING: Jsonpickle can execute arbitrary Python code. Do not load
-        jsonpickles from untrusted / unauthenticated sources.
-
-        """
-        with open(PICKLE_FILE, 'r') as file:
-            frozen = json.load(file)
-            self.d = jsonpickle.decode(frozen)
-
     def fb_export(self):
         """Save all data to Firebase.
 
         Overwrite each node (inbox, etc) with current data so deletions will be
-        reflected. Assumes all current has already been loaded and any changes 
+        reflected. Assumes all current has already been loaded and any changes
         between database and current app data (including deletions) are
         intentional. Otherwise data might be deleted!
 
         """
-        inbox = {}
-        for item in self.d['inbox'].items:
-            id = str(item.created).replace('.', '-')
-            record = {'text': item.text}
-            inbox[id] = record
-        db.child('inbox').set(inbox, user['idToken'])
-
-        next_actions = {}
-        for item in self.d['next_actions'].items:
-            id = str(item.created).replace('.', '-')
-            record = {'text': item.text}
-            next_actions[id] = record
-        db.child('next_actions').set(next_actions, user['idToken'])
-
-        waiting_for = {}
-        for item in self.d['waiting_for'].items:
-            id = str(item.created).replace('.', '-')
-            record = {'text': item.text}
-            try:
-                record['who'] = item.who
-            except AttributeError:
-                pass
-            try:
-                record['when'] = str(item.when)
-            except AttributeError:
-                pass
-            try:
-                record['when'] = str(item.due)
-            except AttributeError:
-                pass
-            waiting_for[id] = record
-        db.child('waiting_for').set(waiting_for, user['idToken'])
-
-        projects = {}
-        for item in self.d['projects'].items:
-            id = str(item.created).replace('.', '-')
-            record = {
-                'text': item.text,
-                'next_actions': item.next_actions
-            }
-            try:
-                record['title'] = item.title
-            except AttributeError:
-                try:
-                    record['title'] = item.short_name
-                except AttributeError:
-                    pass
-            projects[id] = record
-        db.child('projects').set(projects, user['idToken'])
+        db.child('inbox').set(self.d['inbox'].items, user['idToken'])
+        db.child('next_actions').set(
+            self.d['next_actions'].items, user['idToken'])
+        db.child('waiting_for').set(
+            self.d['waiting_for'].items, user['idToken'])
+        db.child('projects').set(self.d['projects'].items, user['idToken'])
+        db.child('maybe_someday').set(
+            self.d['maybe_someday'].items, user['idToken'])
+        db.child('completed_items').set(
+            self.d['completed_items'].items, user['idToken'])
 
         calendar = {}
         for item in self.d['calendar'].items:
-            # id = str(item.created).replace('.', '-')
             created = (parser.parse(
                 item['created']) - datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)).total_seconds()
             id = str(created).replace('.', '-')
-            # record = {'text': item.text, 'date': str(item.date)}
             record = item
             calendar[id] = record
         db.child('calendar').set(calendar, user['idToken'])
-
-        maybe_someday = {}
-        for item in self.d['maybe_someday'].items:
-            id = str(item.created).replace('.', '-')
-            record = {'text': item.text}
-            maybe_someday[id] = record
-        db.child('maybe_someday').set(maybe_someday, user['idToken'])
-
-        completed_items = {}
-        for item in self.d['completed_items'].items:
-            id = str(item.created).replace('.', '-')
-            text = item.text
-            try:
-                text += ' from ' + item.who
-            except (AttributeError, TypeError):
-                pass
-            try:
-                text += ' by ' + str(item.when)
-            except (AttributeError, TypeError):
-                pass
-            try:
-                text = str(item.date) + text
-            except (AttributeError, TypeError):
-                pass
-            try:
-                text += ' @' + item.context
-            except (AttributeError, TypeError):
-                pass
-            record = {'text': item.text,
-                      'completed': str(item.completed)}
-            completed_items[id] = record
-        db.child('completed_items').set(completed_items, user['idToken'])
 
     def fb_import(self):
         """Load all data from Firebase."""
 
         data = db.get(user['idToken']).val()
-        export_file = PARENT / 'export.json'
-        with open(export_file, 'w') as f:
-            json.dump(data, f)
-
-        # data = {}
-        # import_file = PARENT / 'export.json'
-        # with open(import_file, 'r') as f:
-        #     data = json.load(f)
-
-        # Import Inbox
         try:
-            for key, value in data['inbox'].items():
-                newitem = InboxItem(value['text'])
-                newitem.created = float(key.replace('-', '.'))
-                self.d['inbox'].items.append(newitem)
+            self.d['inbox'].items = deepcopy(data['inbox'])
         except KeyError:
             pass
-
-        # Import Next Actions
         try:
-            for key, value in data['next_actions'].items():
-                newitem = NextAction(value['text'])
-                newitem.created = float(key.replace('-', '.'))
-                self.d['next_actions'].items.append(newitem)
+            self.d['next_actions'].items = deepcopy(data['next_actions'])
         except KeyError:
             pass
-
-        # Import Calendar
-        # try:
-        #     for key, value in data['calendar'].items():
-        #         date = parser.parse(value['date'])
-        #         newitem = CalendarItem(date, value['text'])
-        #         newitem.created = float(key.replace('-', '.'))
-        #         self.d['calendar'].add(newitem)
-        # except KeyError:
-        #     pass
+        try:
+            self.d['waiting_for'].items = deepcopy(data['waiting_for'])
+        except KeyError:
+            pass
+        try:
+            self.d['projects'].items = deepcopy(data['projects'])
+        except KeyError:
+            pass
+        try:
+            self.d['maybe_someday'].items = deepcopy(data['maybe_someday'])
+        except KeyError:
+            pass
+        try:
+            self.d['completed_items'].items = deepcopy(data['completed_items'])
+        except KeyError:
+            pass
 
         # Import from Google calendar
         self.d['calendar'].items = get_events(10)
-
-        # Import Waiting For
-        try:
-            for key, value in data['waiting_for'].items():
-                date = parser.parse(value['when'])
-                newitem = WaitingFor(value['text'], value['who'], date)
-                newitem.created = float(key.replace('-', '.'))
-                self.d['waiting_for'].items.append(newitem)
-        except KeyError:
-            pass
-
-        # Import Projects
-        try:
-            for key, value in data['projects'].items():
-                newitem = Project(
-                    value['text'], value['title'], value['next_actions'])
-                newitem.created = float(key.replace('-', '.'))
-                self.d['projects'].items.append(newitem)
-        except KeyError:
-            pass
-
-        # Import Maybe Someday
-        try:
-            for key, value in data['maybe_someday'].items():
-                newitem = InboxItem(value['text'])
-                newitem.created = float(key.replace('-', '.'))
-                self.d['maybe_someday'].items.append(newitem)
-        except KeyError:
-            pass
-
-        # Import Completed Items
-        try:
-            for key, value in data['completed_items'].items():
-                newitem = NextAction(value['text'])
-                newitem.created = float(key.replace('-', '.'))
-                newitem.completed = value['completed']
-                self.d['completed_items'].items.append(newitem)
-        except KeyError:
-            pass
 
     def print_overview(self):
         """Call the print methods for container objects."""
@@ -948,6 +693,12 @@ def main():
         gtd.process_inbox()
 
     # save data to file
+    # gtd.d['waiting_for'].items.append({
+    #     "created": 1527184756.2047727,
+    #     "text": "affidavit",
+    #     "due": "2018-06-08 00:00:00",
+    #     "who": "PenFed"
+    # })
     gtd.fb_export()
 
 
