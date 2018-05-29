@@ -23,11 +23,9 @@ from collections import deque
 from math import floor
 import pyrebase
 import secrets
+from quickstart import get_events, save_event
 
-# Ensure filepath for data files is in module directory regardless of cwd. Ie
-# if setting a keyboard shortcut to open a terminal and run program
-# with option to create prompt for inbox entry. Took me a while to figure out
-# it was looking for the data file in ~/
+# Ensure filepath for data files is in module directory regardless of cwd.
 FILENAME = getframeinfo(currentframe()).filename
 PARENT = Path(FILENAME).resolve().parent
 DATA_FILE = PARENT / 'pygtd.json'
@@ -158,9 +156,9 @@ class Inbox():
 
     def add(self, text):
         """Add new Inbox item."""
-
-        item = InboxItem(text)
-        self.items.append(item)
+        id = str(time()).replace('.', '-')
+        item = {'text': text}
+        db.child('inbox').child(id).set(item, user['idToken'])
 
     def print(self):
         """Print Inbox item."""
@@ -353,8 +351,6 @@ class CalendarItem(Item):
         self.date = date
         self.text = text
 
-    # TODO: maybe someday sync with Google Calendar
-
 
 class Calendar():
     """Create container for Calendar items."""
@@ -366,7 +362,11 @@ class Calendar():
         self.items.append(item)
 
     def i_new_item(self, created=None):
-        """Interactively create new Calendar item."""
+        """Interactively create new Calendar item in Google Calendar.
+
+        If no time is entered or time is 12:00AM, will assume all-day event.
+        Otherwise, a one-hour-long event will be created.
+        """
 
         text = input("Describe scheduled item:\n> ")
         ok = False
@@ -375,13 +375,16 @@ class Calendar():
         while not ok:
             when = input(
                 "Date (and time, optional)\nAny format should work:\n> ")
-            when = str(parser.parse(when))
-            print("Date/Time: {}".format(when))
+            when = parser.parse(when)
+            print("Date/Time: {}".format(when.strftime('%c')))
             isok = input("Ok? (y/n)").lower()
             if 'y' in isok:
                 ok = True
-        newitem = CalendarItem(when, text, created)
-        self.items.append(newitem)
+        if not when.strftime('%I:%M%p') == '12:00AM':
+            end = when + datetime.timedelta(hours=1)
+        else:
+            end = when + datetime.timedelta(day=1)
+        save_event(when, end, text)
         print('New item added to Calendar.')
 
     def print_upcoming(self, period=30):
@@ -392,22 +395,22 @@ class Calendar():
 
         """
         today = datetime.datetime.today()
-        self.items.sort(key=attrgetter('date'))
         for item in self.items:
-            delta = item.date - today
+            date = parser.parse(item['start']['date'])
+            delta = date - today
             days = delta.days
             # only print dates that are not in the past and in specified range
-            if days <= period and item.date >= today:
-                date = item.date.strftime('%a, %b %d')
-                time = item.date.strftime('%I:%M%p')
+            if days <= period and date >= today:
+                dates = date.strftime('%a, %b %d')
+                times = date.strftime('%I:%M%p')
                 # If time in datetime object is 00:00, assume specific time was
                 # not entered or desired.
-                if not time == '12:00AM':
-                    date += ' ' + time
+                if not times == '12:00AM':
+                    dates += ' ' + times
                 hours = round(delta.seconds / 3600)
                 print('{{{}}} {} ({} days, {} hours)'.format(
-                    date,
-                    item.text,
+                    dates,
+                    item['summary'],
                     days,
                     hours
                 ))
@@ -518,7 +521,9 @@ class GTD():
         """Save all data to Firebase.
 
         Overwrite each node (inbox, etc) with current data so deletions will be
-        reflected.
+        reflected. Assumes all current has already been loaded and any changes 
+        between database and current app data (including deletions) are
+        intentional. Otherwise data might be deleted!
 
         """
         inbox = {}
@@ -573,8 +578,12 @@ class GTD():
 
         calendar = {}
         for item in self.d['calendar'].items:
-            id = str(item.created).replace('.', '-')
-            record = {'text': item.text, 'date': str(item.date)}
+            # id = str(item.created).replace('.', '-')
+            created = (parser.parse(
+                item['created']) - datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)).total_seconds()
+            id = str(created).replace('.', '-')
+            # record = {'text': item.text, 'date': str(item.date)}
+            record = item
             calendar[id] = record
         db.child('calendar').set(calendar, user['idToken'])
 
@@ -613,48 +622,66 @@ class GTD():
     def fb_import(self):
         """Load all data from Firebase."""
 
-        # data = db.get(user['idToken']).val()
-        # export_file = PARENT / 'export.json'
-        # with open(export_file, 'w') as f:
-        #     json.dump(data, f)
+        data = db.get(user['idToken']).val()
+        export_file = PARENT / 'export.json'
+        with open(export_file, 'w') as f:
+            json.dump(data, f)
 
-        data = {}
-        import_file = PARENT / 'export.json'
-        with open(import_file, 'r') as f:
-            data = json.load(f)
+        # data = {}
+        # import_file = PARENT / 'export.json'
+        # with open(import_file, 'r') as f:
+        #     data = json.load(f)
 
         # Import Inbox
-        for key, value in data['inbox'].items():
-            newitem = InboxItem(value['text'])
-            newitem.created = float(key.replace('-', '.'))
-            self.d['inbox'].items.append(newitem)
+        try:
+            for key, value in data['inbox'].items():
+                newitem = InboxItem(value['text'])
+                newitem.created = float(key.replace('-', '.'))
+                self.d['inbox'].items.append(newitem)
+        except KeyError:
+            pass
 
         # Import Next Actions
-        for key, value in data['next_actions'].items():
-            newitem = NextAction(value['text'])
-            newitem.created = float(key.replace('-', '.'))
-            self.d['next_actions'].items.append(newitem)
+        try:
+            for key, value in data['next_actions'].items():
+                newitem = NextAction(value['text'])
+                newitem.created = float(key.replace('-', '.'))
+                self.d['next_actions'].items.append(newitem)
+        except KeyError:
+            pass
 
         # Import Calendar
-        for key, value in data['calendar'].items():
-            date = parser.parse(value['date'])
-            newitem = CalendarItem(date, value['text'])
-            newitem.created = float(key.replace('-', '.'))
-            self.d['calendar'].add(newitem)
+        # try:
+        #     for key, value in data['calendar'].items():
+        #         date = parser.parse(value['date'])
+        #         newitem = CalendarItem(date, value['text'])
+        #         newitem.created = float(key.replace('-', '.'))
+        #         self.d['calendar'].add(newitem)
+        # except KeyError:
+        #     pass
+
+        # Import from Google calendar
+        self.d['calendar'].items = get_events(10)
 
         # Import Waiting For
-        for key, value in data['waiting_for'].items():
-            date = parser.parse(value['when'])
-            newitem = WaitingFor(value['text'], value['who'], date)
-            newitem.created = float(key.replace('-', '.'))
-            self.d['waiting_for'].items.append(newitem)
+        try:
+            for key, value in data['waiting_for'].items():
+                date = parser.parse(value['when'])
+                newitem = WaitingFor(value['text'], value['who'], date)
+                newitem.created = float(key.replace('-', '.'))
+                self.d['waiting_for'].items.append(newitem)
+        except KeyError:
+            pass
 
         # Import Projects
-        for key, value in data['projects'].items():
-            newitem = Project(
-                value['text'], value['title'], value['next_actions'])
-            newitem.created = float(key.replace('-', '.'))
-            self.d['projects'].items.append(newitem)
+        try:
+            for key, value in data['projects'].items():
+                newitem = Project(
+                    value['text'], value['title'], value['next_actions'])
+                newitem.created = float(key.replace('-', '.'))
+                self.d['projects'].items.append(newitem)
+        except KeyError:
+            pass
 
         # Import Maybe Someday
         try:
@@ -666,11 +693,14 @@ class GTD():
             pass
 
         # Import Completed Items
-        for key, value in data['completed_items'].items():
-            newitem = NextAction(value['text'])
-            newitem.created = float(key.replace('-', '.'))
-            newitem.completed = value['completed']
-            self.d['completed_items'].items.append(newitem)
+        try:
+            for key, value in data['completed_items'].items():
+                newitem = NextAction(value['text'])
+                newitem.created = float(key.replace('-', '.'))
+                newitem.completed = value['completed']
+                self.d['completed_items'].items.append(newitem)
+        except KeyError:
+            pass
 
     def print_overview(self):
         """Call the print methods for container objects."""
@@ -761,6 +791,65 @@ class GTD():
             else:
                 print('Invalid input')
 
+    def update_list(self, which):
+        """Lists collection with prompt to delete/complete/etc."""
+        items = self.d[which].items
+        while True:
+            # print each action along with its index
+            title = which.replace('_', ' ').title()
+            print('\n', title)
+            for i, item in enumerate(items):
+                print('  ' + str(i) + ' ' + item.text)
+            print(
+                'Enter number (if appropriate) followed by command [ie 1 d, 5t]:')
+            print('(#d)one, (#t)rash, (#e)dit, (q)uit')
+            choice = input('> ').lower()
+
+            # parse input for command and/or index
+            re_num = re.compile(r'\d*')
+            re_char = re.compile('[dteq]')
+            try:
+                index = int(re_num.search(choice).group())
+            except (AttributeError, ValueError):
+                index = None
+            try:
+                command = re_char.search(choice).group()
+            except AttributeError:
+                command = None
+
+            if not command:
+                print('Invalid input!')
+                continue
+
+            if command == 'q':
+                print('Goodbye!')
+                break
+            elif not index and index != 0:
+                print('You must enter a number to specify target.')
+                continue
+
+            if index >= len(items):
+                print('Value out of range.')
+                continue
+
+            if command == 't':
+                print('Delete task: ' + items[index].text)
+                confdelete = input('(y/n)').lower()
+                if 'y' in confdelete:
+                    items.pop(index)
+                    print('Item deleted.')
+                else:
+                    print('Delete aborted.')
+                    continue
+            elif command == 'd':
+                items[index].completed = datetime.datetime.now()
+                self.d['completed_items'].items.append(items.pop(index))
+                print('Item marked complete and moved to Completed Items list.')
+                continue
+            elif command == 'e':
+                print('Not implimented')
+                continue
+
 
 def main():
     # only one argument is meant to be used at a time, but you could, say,
@@ -769,44 +858,94 @@ def main():
     # TODO: handle inappropriate option combinations
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         '-i',
         '--inbox',
         nargs='+',
         action='store',
         help='Add text to new Inbox item.'
     )
-    parser.add_argument(
+    group.add_argument(
         '-o',
         '--overview',
         action='store_true',
         help='Print lists to terminal.'
     )
-    parser.add_argument(
+    group.add_argument(
         '-P',
         '--paste',
         action='store_true',
         help='Adds contents of clipboard as new Inbox item.'
     )
+    group.add_argument(
+        '-q',
+        '--quick-add',
+        action='store_true',
+        dest='quick',
+        help='Create Inbox prompt for task entry. For use with global keyboard '
+        + 'shortcut.'
+    )
+    group.add_argument(
+        '-u',
+        '--update-list',
+        action='store',
+        dest='update_list',
+        nargs='?',
+        help='Displays Next Actions and prompts user to delete/mark complete, '
+        + 'etc.'
+    )
+    group.add_argument(
+        '-d',
+        '--process-inbox',
+        action='store_true',
+        dest='process_inbox',
+        help='Process Inbox items.'
+    )
     args = parser.parse_args()
 
     # instantiate object responsible for data
     gtd = GTD()
-
-    # load data
-    gtd.fb_import()
-
+    # Inbox now adds directly to Firebase before loading data to save time.
+    # Item will be in app data next time data is loaded from Firebase.
     if args.inbox:  # -i, --inbox
         # add text entered at CLI to inbox
         text = ' '.join(args.inbox)
         gtd.d['inbox'].add(text)
         print('"{}" added to inbox.'.format(text))
+        return True
     if args.paste:  # -P, --paste
         # add clipboard contents to inbox
         gtd.d['inbox'].paste()
+        return True
+    if args.quick:
+        # show Inbox prompt. For use with global keyboard shortcut.
+        gtd.d['inbox'].quickadd()
+        return True
+
+    # load data
+    gtd.fb_import()
+
     if args.overview:  # -o, --overview
         # print lists
         gtd.print_overview()
+    if args.update_list:
+        s = args.update_list[0].lower()
+        if s[0] == 'i':
+            which = 'inbox'
+        elif s[0] == 'n':
+            which = 'next_actions'
+        elif s[0] == 'w':
+            which = 'waiting_for'
+        elif s[0] == 'p':
+            which = 'projects'
+        elif s[0] == 'm':
+            which = 'maybe_someday'
+        elif s[0] == 'c':
+            which = 'calendar'
+        gtd.update_list(which)
+    if args.process_inbox:
+        gtd.process_inbox()
 
     # save data to file
     gtd.fb_export()
