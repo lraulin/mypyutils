@@ -2,6 +2,7 @@
 *.json
 *.csv
 *.db
+*.bak
 
 # Compiled python modules.
 *.pyc

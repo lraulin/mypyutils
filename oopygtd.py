@@ -175,7 +175,7 @@ class NextActionList():
               + "the desired outcome?\nVisualize yourself doing it and describe it "
               + "in a sentence. Be specific. Ie not 'set up meeting', but 'pick up "
               + "the phone and call X'.")
-        text = input("> ")
+        text = input("NEXT ACTION> ")
         self.add(text, created)
         print('New item added to Next Actions list.')
 
@@ -319,10 +319,19 @@ class Calendar():
         date/time at which they occur, and the time between now and then.
 
         """
-        today = datetime.datetime.today()
         for item in self.items:
-            date = parser.parse(item['start']['date'])
-            delta = date - today
+            # Google Calendar may give start and end times with key 'date' or
+            # 'dateTime', depending on how event is entered.
+            try:
+                date = parser.parse(item['start']['date'])
+            except KeyError:
+                date = parser.parse(item['start']['dateTime'])
+            try:
+                today = datetime.datetime.today()
+                delta = date - today
+            except TypeError:
+                today = datetime.datetime.now(datetime.timezone.utc)
+                delta = date - today
             days = delta.days
             # only print dates that are not in the past and in specified range
             if days <= period and date >= today:
@@ -361,7 +370,7 @@ class CompletedItemList():
         self.items[created] = newitem
 
     def print(self):
-        for _, item in self.item.items():
+        for _, item in self.items.items():
             print(item['text'])
 
 
@@ -472,14 +481,15 @@ class GTD():
         # processed, it will be dequeued (removed), and loop will continue with
         # next (now first) item in queue. Loop until no items are left.
 
-        inbox = self.d['inbox'].items
+        d = self.d['inbox'].items
+        inbox = deque(d.keys())
         while len(inbox):
-            item = inbox[0]
+            self.fb_export()
+            key = inbox[0]
             # Use correct singular/plural form.
-            item_items = 'items' if len(self.d['inbox'].items) > 2 else 'item'
-            print("\nProcess Item ({} {} left)".format(
-                len(self.d['inbox'].items), item_items))
-            print(item.text)
+            item_items = 'items' if len(inbox) > 2 else 'item'
+            print(f"\nProcess Item ({len(inbox)} {item_items} left)")
+            print('\n', d[key]['text'], '\n')
             actionable = input("(a) Add to Next Actions\n"
                                + "(d) Do it now in 2 minutes\n"
                                + "(c) Schedule it -- add to Calendar\n"
@@ -490,9 +500,10 @@ class GTD():
                                + "(t) Already done/Trash\n"
                                + "> ").lower()
             if 'a' in actionable:
-                # Create new Next Action
-                self.d['next_actions'].i_new_item(item.created)
-                inbox.popleft()
+                # Create new Next Action then delete Inbox item
+                self.d['next_actions'].i_new_item(key)
+                del d[inbox.popleft()]
+                continue
             elif 'd' in actionable:
                 # Complete task now in 2 minutes
                 print("Do it now!")
@@ -500,29 +511,30 @@ class GTD():
                 timer(120)
                 done = input("Done? (y/n): ").lower()
                 if 'y' in done:
-                    item.completed = datetime.datetime.now()
-                    self.d['completed'].items.append(item)
-                    inbox.popleft()
+                    d[key].completed = datetime.datetime.now().isoformat()
+                    self.d['completed'][key] = d[key]
+                    del d[inbox.popleft()]
                 else:
                     continue  # repeat loop with same item
             elif 'c' in actionable:
                 # Create new Calendar item
-                self.d['calendar'].i_new_item(item.created)
-                inbox.popleft()
+                self.d['calendar'].i_new_item(key)
+                del d[inbox.popleft()]
                 continue
             elif 'w' in actionable:
                 # Create new Waiting For item
-                self.d['waiting_for'].i_new_item(item.created)
-                inbox.popleft()
+                self.d['waiting_for'].i_new_item(key)
+                del d[inbox.popleft()]
                 continue
             elif 'p' in actionable:
                 # Create new Project
-                self.d['projects'].i_new_item(item.created)
+                self.d['projects'].i_new_item(key)
+                del d[inbox.popleft()]
                 continue
             elif 's' in actionable:
                 # save item in SomedayMaybe for future consideration
-                self.d['someday_maybe'].add(item.text, item.created)
-                inbox.popleft()
+                self.d['maybe_someday'].add(d[key]['text'], key)
+                del d[inbox.popleft()]
                 continue
             elif 'r' in actionable:
                 # TODO: add reference list
@@ -530,7 +542,7 @@ class GTD():
                 continue
             elif 't' in actionable:
                 # delete item
-                inbox.popleft()
+                del d[inbox.popleft()]
                 print('Item deleted.')
                 continue
             else:

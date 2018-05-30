@@ -72,8 +72,8 @@ def get_events(num):
                                           orderBy='startTime').execute()
     events = events_result.get('items', [])
 
-    # with open('gcal_test.json', 'w') as f:
-    #     json.dump(events, f)
+    with open('gcal_test.json', 'w') as f:
+        json.dump(events, f)
 
     return events
 
@@ -96,11 +96,11 @@ def save_event(start, end, summary):
     # strings or as datetime objects.
     try:
         start = start.isoformat() + tz_offset()
-    except AttributeError:
+    except AttributeError as e:
         start = parser.parse(start).isoformat() + tz_offset()
     try:
-        end = start.isoformat() + tz_offset()
-    except AttributeError:
+        end = end.isoformat() + tz_offset()
+    except AttributeError as e:
         end = parser.parse(end).isoformat() + tz_offset()
 
     event = {
