@@ -23,7 +23,7 @@ from collections import deque
 from math import floor
 import pyrebase
 import secrets
-from quickstart import get_events, save_event
+from quickstart import get_events, save_event, save_g_task, fetch_g_tasks
 from copy import deepcopy
 import pprint
 
@@ -124,11 +124,12 @@ class Inbox():
 
     def add(self, text, created=None):
         """Add new Inbox item."""
-        created = created or str(time()).replace('.', '-')
+        # created = created or str(time()).replace('.', '-')
         item = {
-            'text': text,
+            'title': text,
         }
-        self.items[created] = item
+        # self.items[created] = item
+        save_g_task(item, 'inbox')
 
     def print(self):
         """Print Inbox item."""
@@ -158,11 +159,12 @@ class NextActionList():
         self.items = items
 
     def add(self, text, created):
-        created = created or str(time()).replace('.', '-')
+        # created = created or str(time()).replace('.', '-')
         newitem = {
-            'text': text
+            'title': text
         }
-        self.items[created] = newitem
+        # self.items[created] = newitem
+        save_g_task(newitem, 'next_actions')
 
     def print(self):
         """Print Next Action."""
@@ -194,11 +196,12 @@ class WaitingForList():
         except TypeError:
             pass
         newitem = {
-            'text': text,
-            'who': who,
-            'due': due,
+            'title': text + ' from ' + who,
         }
-        self.items[created] = newitem
+        if due:
+            newitem['due'] = due
+        # self.items[created] = newitem
+        save_g_task(newitem, 'waiting_for')
 
     def print(self):
         """Print Waiting For items."""
@@ -235,13 +238,14 @@ class ProjectList():
         self.items = items
 
     def add(self, text, title=None, created=None, next_actions=[]):
-        created = created or str(time()).replace('.', '-')
+        # created = created or str(time()).replace('.', '-')
+        pp = pprint.PrettyPrinter()
         newitem = {
-            'text': text,
-            'title': title,
-            'next_actions': next_actions
+            'title': text,
+            'short_name': title,
+            'notes': pp.pprint(next_actions) if next_actions else ''
         }
-        self.items.append(newitem)
+        # self.items.append(newitem)
 
     def print(self):
         for _, item in self.items.items():
@@ -266,11 +270,12 @@ class MaybeSomedayList():
         self.items = items
 
     def add(self, text, created=None):
-        created = created or str(time()).replace('.', '-')
+        # created = created or str(time()).replace('.', '-')
         newitem = {
-            'text': text,
+            'title': text,
         }
-        self.items[created] = newitem
+        # self.items[created] = newitem
+        save_g_task(newitem, 'maybe_someday')
 
     def print(self):
         for _, item in self.items.items():
@@ -424,6 +429,19 @@ class GTD():
             calendar[id] = record
         db.child('calendar').set(calendar, user['idToken'])
 
+    def save_all_g_tasks(self):
+        print('about to save g tasks')
+        list = 'next_actions'
+        for _, item in self.d[list].items.items():
+            print('saving item...')
+            print(item['text'])
+            # due = parser.parse(item['due']).isoformat() + '-04:00'
+            task = {
+                'title': item['text']
+                # 'title': item['text'] + ' from ' + item['who']
+            }
+            save_g_task(task, list)
+
     def fb_import(self):
         """Load all data from Firebase."""
 
@@ -453,8 +471,30 @@ class GTD():
         except KeyError:
             pass
 
-        # Import from Google calendar
+    def fetch_g_cal(self):
+        """Get events from Google Calendar API."""
+
         self.d['calendar'].items = get_events(10)
+
+    def fetch_g_tasks(self):
+        """Get tasks from Google Tasks API."""
+        buckets = ['inbox', 'next_actions', 'projects',
+                   'maybe_someday', 'waiting_for']
+
+        for bucket in buckets:
+            items = fetch_g_tasks(bucket)
+            for item in items:
+                self.d[bucket].items[item[id]] = item
+
+    def fetch_all(self):
+        """Get data from all sources."""
+
+        # Get from firebase
+        self.fb_import()
+
+        # Get from Google
+        self.fetch_g_cal()
+        self.fetch_g_tasks()
 
     def print_overview(self):
         """Call the print methods for container objects."""
@@ -612,9 +652,10 @@ def main():
     # only one argument is meant to be used at a time, but you could, say,
     # add an inbox item and view the lists at the same time if you wanted to
 
-    # TODO: handle inappropriate option combinations
-
-    parser = argparse.ArgumentParser()
+    description = 'A command-line GTD app that integrates with Google Calendar.'
+    epilog = ('Add & at the end to leave the terminal free while data is being '
+              'uploaded/downloaded.')
+    parser = argparse.ArgumentParser(description=description, epilog=epilog)
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         '-i',
@@ -681,7 +722,8 @@ def main():
         return True
 
     # load data
-    gtd.fb_import()
+    print('Fetching data...')
+    gtd.fetch_all()
 
     if args.overview:  # -o, --overview
         # print lists
@@ -711,8 +753,12 @@ def main():
     #     "due": "2018-06-08 00:00:00",
     #     "who": "PenFed"
     # })
+    print('about to run save g tasks')
     gtd.fb_export()
 
 
 if __name__ == '__main__':
     main()
+
+# TODO: if offline, save changes to by synced at next opportunity
+# Perhaps I could store operations in a queue...

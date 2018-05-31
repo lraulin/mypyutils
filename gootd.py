@@ -1,44 +1,36 @@
-# Copyright 2018 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# [START calendar_quickstart]
-"""
-Shows basic usage of the Google Calendar API. Creates a Google Calendar API
-service object and outputs a list of the next 10 events on the user's calendar.
-"""
-# When adding/changing scope, I get an insuffficient permissions error.
-# I can make it re-do the authorization by deleting/hiding credentials.json,
-# forcing it to ask for authorization and create a new one. Probably not the
-# correct way to do it, but it works for now.
-#
-# Dev console for tasks api:
-# https://console.developers.google.com/apis/api/tasks.googleapis.com/overview?project=pygtd-b8b3d&duration=PT1H
-from __future__ import print_function
+# Take 3. Back to how I started in a lot of ways. Except now it's basically
+# a front-end for Google tasks and calendar.
 from apiclient.discovery import build
+from collections import deque
+from copy import deepcopy
+from dateutil import parser
 from httplib2 import Http
+from inspect import currentframe, getframeinfo
+from math import floor
 from oauth2client import file, client, tools
+from operator import attrgetter
+from os import path
+from pathlib import Path
+from quickstart import get_events, save_event, save_g_task
+from sys import stdout, argv, exit
+from time import time, sleep
+import argparse
 import datetime
 import json
+import jsonpickle
+import pprint
+import pyperclip
+import pyrebase
+import re
+import secrets
+import shelve
 import time
-from dateutil import parser
-from inspect import currentframe, getframeinfo
-from pathlib import Path
 
 FILENAME = getframeinfo(currentframe()).filename
 PARENT = Path(FILENAME).resolve().parent
 CREDENTIALS = PARENT / 'credentials.json'
 CLIENT_SECRET = PARENT / 'client_secret.json'
+DATA_FILE = PARENT / 'pygtd.json'
 LIST_IDS_FILE = PARENT / 'g_list_ids.json'
 SCOPES = ['https://www.googleapis.com/auth/tasks',
           'https://www.googleapis.com/auth/calendar']
@@ -135,14 +127,8 @@ def save_event(start, end, summary):
     return e
 
 
-def fetch_g_tasks(bucket):
-    """Fetch uncompleted tasks from Google API & return as list of dicts.
+def get_tasks():
 
-    Takes list name as input which is matched with list ID using json file
-    to retrieve tasks for that list.
-    """
-
-    # Initialize Google API service
     service = build('tasks', 'v1', http=creds.authorize(Http()))
 
     # Call the Tasks API -- get task lists
@@ -152,20 +138,17 @@ def fetch_g_tasks(bucket):
     if not items:
         print('No task lists found.')
     else:
+        print('Task lists:')
         for item in items:
-            # Reformat list name ('Next Actions' becomes 'next_actions')
-            # Use name as key for list id
+            print('{0} ({1})'.format(item['title'], item['id']))
             lists[pythonize(item['title'])] = item['id']
 
-    # Update tasklist-ID dictionary to make sure it stays current
     with open(LIST_IDS_FILE, 'w') as f:
         json.dump(lists, f)
 
-    # Retrieve tasks for selected list from API
     task_results = service.tasks().list(
-        tasklist=LIST_IDS[bucket], showCompleted=False).execute()
+        tasklist=list_id, showCompleted=False).execute()
     tasks = task_results.get('items', [])
-    return tasks
 
 
 def save_g_task(item, list):

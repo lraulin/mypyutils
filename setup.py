@@ -1,8 +1,8 @@
 from setuptools import setup
 
 setup(name='pygtd',
-      version='0.2',
-      description='CLI GTD app',
+      version='0.3',
+      description='CLI GTD app for Google tasks and calendar',
       url='http://github.com/lraulin/pygtd',
       author='Lee Raulin',
       author_email='leeraulin@gmail.com',
