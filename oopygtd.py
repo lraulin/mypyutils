@@ -12,6 +12,7 @@ import datetime
 import re
 import shelve
 import jsonpickle
+import quickstart
 from os import path
 from time import time, sleep
 from sys import stdout, argv, exit
@@ -23,7 +24,6 @@ from collections import deque
 from math import floor
 import pyrebase
 import secrets
-from quickstart import get_events, save_event, save_g_task, fetch_g_tasks
 from copy import deepcopy
 import pprint
 
@@ -32,6 +32,9 @@ FILENAME = getframeinfo(currentframe()).filename
 PARENT = Path(FILENAME).resolve().parent
 DATA_FILE = PARENT / 'pygtd.json'
 PICKLE_FILE = PARENT / 'pickle.json'
+
+# just so I don't have to type it again
+pp = pprint.PrettyPrinter()
 
 # Firebase
 SERVICE_ACCOUNT_CREDENTIALS = PARENT / 'pygtd-7b396b5dc2be.json'
@@ -129,13 +132,13 @@ class Inbox():
             'title': text,
         }
         # self.items[created] = item
-        save_g_task(item, 'inbox')
+        quickstart.save_g_task(item, 'inbox')
 
     def print(self):
         """Print Inbox item."""
 
         for _, item in self.items.items():
-            print(item['text'])
+            print(item['title'])
 
     def quickadd(self):
         """Display a prompt to add new Inbox item.
@@ -164,12 +167,12 @@ class NextActionList():
             'title': text
         }
         # self.items[created] = newitem
-        save_g_task(newitem, 'next_actions')
+        quickstart.save_g_task(newitem, 'next_actions')
 
     def print(self):
         """Print Next Action."""
         for _, item in self.items.items():
-            print(item['text'])
+            print(item['title'])
 
     def i_new_item(self, created=None):
         """Create new item with interactive prompt."""
@@ -201,18 +204,21 @@ class WaitingForList():
         if due:
             newitem['due'] = due
         # self.items[created] = newitem
-        save_g_task(newitem, 'waiting_for')
+        quickstart.save_g_task(newitem, 'waiting_for')
 
     def print(self):
         """Print Waiting For items."""
 
-        today = datetime.datetime.today()
         for _, item in self.items.items():
             date = parser.parse(item['due'])
-            days = (date - today).days if date else None
-            text = '...' + item['text']
-            if item['who']:
-                text += ' from ' + item['who']
+            if date:
+                try:
+                    today = datetime.datetime.today()
+                    days = (date - today).days
+                except TypeError:
+                    today = datetime.datetime.now(datetime.timezone.utc)
+                    days = (date - today).days
+            text = '...' + item['title']
             if days:
                 text += ' in ' + str(days) + ' days'
             print(text)
@@ -242,14 +248,16 @@ class ProjectList():
         pp = pprint.PrettyPrinter()
         newitem = {
             'title': text,
-            'short_name': title,
             'notes': pp.pprint(next_actions) if next_actions else ''
         }
+        if title:
+            newitem['title'] = f'[{title}] ' + text
         # self.items.append(newitem)
+        quickstart.save_g_task(newitem, 'projects')
 
     def print(self):
         for _, item in self.items.items():
-            print('[{}] {}'.format(item['title'], item['text']))
+            print(item['title'])
             # TODO: print next action
 
     def i_new_item(self, created=None):
@@ -275,7 +283,7 @@ class MaybeSomedayList():
             'title': text,
         }
         # self.items[created] = newitem
-        save_g_task(newitem, 'maybe_someday')
+        quickstart.save_g_task(newitem, 'maybe_someday')
 
     def print(self):
         for _, item in self.items.items():
@@ -314,7 +322,7 @@ class Calendar():
             end = when + datetime.timedelta(hours=1)
         else:
             end = when + datetime.timedelta(day=1)
-        save_event(when, end, text)
+        quickstart.save_event(when, end, text)
         print('New item added to Calendar.')
 
     def print_upcoming(self, period=30):
@@ -376,7 +384,10 @@ class CompletedItemList():
 
     def print(self):
         for _, item in self.items.items():
-            print(item['text'])
+            try:
+                print(item['text'])
+            except KeyError:
+                print(item['title'])
 
 
 class GTD():
@@ -440,7 +451,7 @@ class GTD():
                 'title': item['text']
                 # 'title': item['text'] + ' from ' + item['who']
             }
-            save_g_task(task, list)
+            quickstart.save_g_task(task, list)
 
     def fb_import(self):
         """Load all data from Firebase."""
@@ -474,7 +485,7 @@ class GTD():
     def fetch_g_cal(self):
         """Get events from Google Calendar API."""
 
-        self.d['calendar'].items = get_events(10)
+        self.d['calendar'].items = quickstart.get_events(10)
 
     def fetch_g_tasks(self):
         """Get tasks from Google Tasks API."""
@@ -482,15 +493,15 @@ class GTD():
                    'maybe_someday', 'waiting_for']
 
         for bucket in buckets:
-            items = fetch_g_tasks(bucket)
+            items = quickstart.fetch_g_tasks(bucket)
             for item in items:
-                self.d[bucket].items[item[id]] = item
+                self.d[bucket].items[item['id']] = item
 
     def fetch_all(self):
         """Get data from all sources."""
 
         # Get from firebase
-        self.fb_import()
+        # self.fb_import()
 
         # Get from Google
         self.fetch_g_cal()
@@ -529,7 +540,7 @@ class GTD():
             # Use correct singular/plural form.
             item_items = 'items' if len(inbox) > 2 else 'item'
             print(f"\nProcess Item ({len(inbox)} {item_items} left)")
-            print('\n', d[key]['text'], '\n')
+            print('\n', d[key]['title'], '\n')
             actionable = input("(a) Add to Next Actions\n"
                                + "(d) Do it now in 2 minutes\n"
                                + "(c) Schedule it -- add to Calendar\n"
@@ -542,7 +553,8 @@ class GTD():
             if 'a' in actionable:
                 # Create new Next Action then delete Inbox item
                 self.d['next_actions'].i_new_item(key)
-                del d[inbox.popleft()]
+                taskID = inbox.popleft()
+                quickstart.delete_g_task(taskID, 'inbox')
                 continue
             elif 'd' in actionable:
                 # Complete task now in 2 minutes
@@ -551,30 +563,33 @@ class GTD():
                 timer(120)
                 done = input("Done? (y/n): ").lower()
                 if 'y' in done:
-                    d[key].completed = datetime.datetime.now().isoformat()
-                    self.d['completed'][key] = d[key]
-                    del d[inbox.popleft()]
+                    taskID = inbox.popleft()
+                    quickstart.complete_g_task(taskID, 'inbox')
                 else:
                     continue  # repeat loop with same item
             elif 'c' in actionable:
                 # Create new Calendar item
                 self.d['calendar'].i_new_item(key)
-                del d[inbox.popleft()]
+                taskID = inbox.popleft()
+                quickstart.delete_g_task(taskID, 'inbox')
                 continue
             elif 'w' in actionable:
                 # Create new Waiting For item
                 self.d['waiting_for'].i_new_item(key)
-                del d[inbox.popleft()]
+                taskID = inbox.popleft()
+                quickstart.delete_g_task(taskID, 'inbox')
                 continue
             elif 'p' in actionable:
                 # Create new Project
                 self.d['projects'].i_new_item(key)
-                del d[inbox.popleft()]
+                taskID = inbox.popleft()
+                quickstart.delete_g_task(taskID, 'inbox')
                 continue
             elif 's' in actionable:
                 # save item in SomedayMaybe for future consideration
-                self.d['maybe_someday'].add(d[key]['text'], key)
-                del d[inbox.popleft()]
+                self.d['maybe_someday'].add(d[key]['title'], key)
+                taskID = inbox.popleft()
+                quickstart.delete_g_task(taskID, 'inbox')
                 continue
             elif 'r' in actionable:
                 # TODO: add reference list
@@ -582,7 +597,8 @@ class GTD():
                 continue
             elif 't' in actionable:
                 # delete item
-                del d[inbox.popleft()]
+                taskID = inbox.popleft()
+                quickstart.delete_g_task(taskID, 'inbox')
                 print('Item deleted.')
                 continue
             else:
@@ -762,3 +778,5 @@ if __name__ == '__main__':
 
 # TODO: if offline, save changes to by synced at next opportunity
 # Perhaps I could store operations in a queue...
+# TODO: write CRUD methods so if you change backend you only have to change
+# them in one place

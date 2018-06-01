@@ -44,10 +44,10 @@ SCOPES = ['https://www.googleapis.com/auth/tasks',
           'https://www.googleapis.com/auth/calendar']
 
 # Set up Google API
-store = file.Storage('credentials.json')
+store = file.Storage(CREDENTIALS)
 creds = store.get()
 if not creds or creds.invalid:
-    flow = client.flow_from_clientsecrets('client_secret.json', SCOPES)
+    flow = client.flow_from_clientsecrets(CLIENT_SECRET, SCOPES)
     creds = tools.run_flow(flow, store)
 
 with open(LIST_IDS_FILE, 'r') as f:
@@ -192,6 +192,32 @@ def clear_g_list(list):
     ids = [x['id'] for x in tasks]
     for taskID in ids:
         service.tasks().delete(tasklist=LIST_IDS[list], task=taskID).execute()
+
+
+def delete_g_task(taskID, list):
+    """Delete task from Google tasks."""
+
+    # Initialize service
+    service = build('tasks', 'v1', http=creds.authorize(Http()))
+    # Delete task
+    service.tasks().delete(tasklist=LIST_IDS[list], task=taskID).execute()
+
+
+def complete_g_task(taskID, list):
+    """Mark Google task as completed."""
+
+    # Initialize service
+    service = build('tasks', 'v1', http=creds.authorize(Http()))
+
+    # First retrieve the task to update.
+    task = service.tasks().get(
+        tasklist=LIST_IDS[list], task='taskID').execute()
+    task['status'] = 'completed'
+
+    result = service.tasks().update(
+        tasklist=LIST_IDS[list], task=task['id'], body=task).execute()
+    # Print the completed date.
+    print(f"Task completed at {result['completed']}")
 
 
 def main():
