@@ -156,16 +156,16 @@ def fetch_g_tasks(bucket):
             lists[pythonize(item['title'])] = item['id']
 
     # Update tasklist-ID dictionary to make sure it stays current
-    with open(LIST_IDS_FILE, 'w') as f:
-        json.dump(lists, f)
+    # with open(LIST_IDS_FILE, 'w') as f:
+    #     json.dump(lists, f)
 
     # Retrieve tasks for selected list from API
     # TODO: use regex or something to get them reliably even I slightly change
-    # the names
-    task_results = service.tasks().list(
-        tasklist=LIST_IDS[bucket], showCompleted=False).execute()
-    tasks = task_results.get('items', [])
-    return tasks
+    # the names. for now I'll maintain it manually
+    # task_results = service.tasks().list(
+    #     tasklist=LIST_IDS[bucket], showCompleted=False).execute()
+    # tasks = task_results.get('items', [])
+    # return tasks
 
 
 def save_g_task(item, list):
