@@ -1,13 +1,11 @@
+(N) Go to mailbox and see if you can what plant mom wants you to dig up
+(N) Mow lawn
 (N) Revise pygtd: refactor exception handling for KeyError to use get method instead
-(N) Sign affadavit and mail to PenFed
 (N) Add picture with cousin on Instagram
 (N) @Dad Ask dad for picture with cousin
-(N) google USDS and see if they have jobs I can apply to
 (N) get next actions to print with title of associated project and projects to print indented next actions
-(N) 
 (P) Get a job
 (P) Make a better portfolio site
-(P) @Computer Set up routing
 (P) Apply to jobs online
 (P) Get references
 (P) @ Write Joe and ask if I can use him as a reference
@@ -19,10 +17,9 @@
 (P) Make a clone of the Convict Conditioning app
 (P) Complete all algorithm challenges on Coderbyte, or at least as many as possible before month is up
 (P) Complete GTD CLI app
-(P) Make curses interface
-(P) 
-(S) Coderbyte Subscription will Autorenew due:2018-06-05
 (S) Sane Box $7 Autorenew due:2018-06-06
+(S) Will Arrives due:2018-06-06T17:00:00-04:00
+(S) Archer due:2018-06-06T22:00:00-04:00
 (S) Curiosity Stream Autorenew $2.99 due:2018-06-09
 (S) Grammy's Party due:2018-06-10
 (S) Father's Day due:2018-06-17
@@ -30,8 +27,11 @@
 (S) Doit.im Expires (Renews?) $2 due:2018-06-28
 (S) Need Adderall Refill due:2018-07-02
 (S) Independence Day due:2018-07-04
-(S) Sane Box $7 Autorenew due:2018-07-06
 (W) toothbrush heads from mom or dad
+(W) PenFed to get fraud form
+(Z) make a photography site for dad
+(Z) write function to create daily/repeating tasks if they don't exist or are were completed a day or more ago
+(Z) set up chron jobs to get weather and tasks
 (Z) change password
 (Z) setup old computer as server
 (Z) https://www.chesapeakebay.net/who/jobs
@@ -44,3 +44,4 @@
 (Z) watch video on jumprope workout
 (Z) learn lisp
 (Z) 
+

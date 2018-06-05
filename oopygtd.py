@@ -514,20 +514,21 @@ class GTD():
 
         for bucket in buckets:
             items = quickstart.fetch_g_tasks(bucket)
-            for item in items:
-                self.d[bucket].items[item['id']] = item
-                # set indent levels. Assuming tasks are in order, if a task is
-                # indented, we should have already processed its parent(s)
-                parent = item.get('parent')
-                if not parent:
-                    # it's a top-level item: set indent to 0
-                    self.d[bucket].items[item['id']].update({'indent': 0})
-                else:
-                    # it's a child item; find its parent (which should have
-                    # already been processed) to get indent level
-                    parent_indent = self.d[bucket].items[parent].get('indent')
-                    indent = parent_indent + 1
-                    self.d[bucket].items[item['id']].update({'indent': indent})
+            if items:
+                for item in items:
+                    self.d[bucket].items[item['id']] = item
+                    # set indent levels. Assuming tasks are in order, if a task is
+                    # indented, we should have already processed its parent(s)
+                    parent = item.get('parent')
+                    if not parent:
+                        # it's a top-level item: set indent to 0
+                        self.d[bucket].items[item['id']].update({'indent': 0})
+                    else:
+                        # it's a child item; find its parent (which should have
+                        # already been processed) to get indent level
+                        parent_indent = self.d[bucket].items[parent].get('indent')
+                        indent = parent_indent + 1
+                        self.d[bucket].items[item['id']].update({'indent': indent})
 
     def fetch_all(self):
         """Get data from all sources."""
@@ -536,11 +537,8 @@ class GTD():
         # self.fb_import()
 
         # Get from Google
-        start_time = time()
-        print('Fetching data from Google...')
         self.fetch_g_cal()
         self.fetch_g_tasks()
-        time_elapsed = round(time() - start_time)
         print(f'Data retrieved in {time_elapsed} seconds.')
 
     def print_overview(self):
