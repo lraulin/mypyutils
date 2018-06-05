@@ -35,6 +35,7 @@ from dateutil import parser
 from inspect import currentframe, getframeinfo
 from pathlib import Path
 
+TIMEZONE = 'America/New_York'
 FILENAME = getframeinfo(currentframe()).filename
 PARENT = Path(FILENAME).resolve().parent
 CREDENTIALS = PARENT / 'credentials.json'
@@ -92,46 +93,43 @@ def get_events(num):
                                           orderBy='startTime').execute()
     events = events_result.get('items', [])
 
-    with open('gcal_test.json', 'w') as f:
+    with open(PARENT / 'gcal_test.json', 'w') as f:
         json.dump(events, f)
 
     return events
 
 
-def save_event(start, end, summary):
+def save_event(summary, date_time):
     """Create event in Google Calendar.
 
-    start and end can be either datetime objects or strings.
+    Args:
+        summary (str): Text/title for the event.
+        date_time (datetime.datetime): Date and time the event will occur.
+
+    If time is 12:00AM, an all-day event will be assumed. Otherwise, a one-
+    hour event will be assumed.
     """
 
     cal = build('calendar', 'v3', http=creds.authorize(Http()))
 
-    # Get start and end times in ISO format with UTC offset, whether given as
-    # strings or as datetime objects.
-    try:
-        start = start.isoformat() + tz_offset()
-    except AttributeError as e:
-        start = parser.parse(start).isoformat() + tz_offset()
-    try:
-        end = end.isoformat() + tz_offset()
-    except AttributeError as e:
-        end = parser.parse(end).isoformat() + tz_offset()
-
     event = {
         'summary': summary,
-        'start': {'dateTime': start},
-        'end': {'dateTime': end},
+        'start': {'timeZone': TIMEZONE},
+        'end': {'timeZone': TIMEZONE}
     }
+
+    if date_time.strftime('%I:%M%p') == '12:00AM':  # assume all-day event
+        event['start'].update({'date': date_time.strftime('%Y-%m-%d')})
+        end = date_time + datetime.timedelta(days=1)
+        event['end'].update({'date': end.strftime('%Y-%m-%d')})
+    else:  # assume 1 hour
+        event['start'].update({'dateTime': date_time.isoformat()})
+        end = date_time + datetime.timedelta(hours=1)
+        event['end'].update({'dateTime': end.isoformat()})
 
     # Create event with Google Calendar API
     e = cal.events().insert(calendarId='primary',
                             sendNotifications=True, body=event).execute()
-
-    # Confirm success
-    print('''*** %r event added:
-        Start: %s
-        End:   %s''' % (e['summary'].encode('utf-8'),
-                        e['start']['dateTime'], e['end']['dateTime']))
     return e
 
 
@@ -162,6 +160,8 @@ def fetch_g_tasks(bucket):
         json.dump(lists, f)
 
     # Retrieve tasks for selected list from API
+    # TODO: use regex or something to get them reliably even I slightly change
+    # the names
     task_results = service.tasks().list(
         tasklist=LIST_IDS[bucket], showCompleted=False).execute()
     tasks = task_results.get('items', [])

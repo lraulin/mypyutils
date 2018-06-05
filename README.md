@@ -67,6 +67,23 @@ and could also be added to a keyboard shortcut.
 The prompt can also be used to enter multiple tasks by calling the main program
 with the option -Q. Hit Ctrl-C to exit.
 
+## Where Are the Contexts?
+
+I haven't done them yet. Maybe I will eventually, but it's not a priority.
+Personally, I have one only context at the moment. Even for most people...
+@Home, @Office, @Errands, and @Agendas[x-person] might be appropriate. Having
+all those plus @Phone, @Computer, @Email, etc... Has no one else noticed
+noticed that these are all the same device these days? Ok, there's stuff you
+could do anywhere, and stuff you need to be sitting in front of your notebook
+or desktop to do.
+
+Anyway, the point is, contexts aren't the defining feature of GTD, or, for that
+matter, the most important one. The point of contexts is so you can quickly see
+what you could do at the moment. Far more important is that you collect ideas
+as they occur, that you process them and maintain sharp boundaries between the
+categories of Next Actions, Projects, etc., that each Next Action is a
+specific physical action that doesn't have undecided intermediary steps...
+
 # Waist Tracker
 
 (Will probably move to separate repo at some point.)
