@@ -526,9 +526,11 @@ class GTD():
                     else:
                         # it's a child item; find its parent (which should have
                         # already been processed) to get indent level
-                        parent_indent = self.d[bucket].items[parent].get('indent')
+                        parent_indent = self.d[bucket].items[parent].get(
+                            'indent')
                         indent = parent_indent + 1
-                        self.d[bucket].items[item['id']].update({'indent': indent})
+                        self.d[bucket].items[item['id']].update(
+                            {'indent': indent})
 
     def fetch_all(self):
         """Get data from all sources."""
@@ -539,7 +541,6 @@ class GTD():
         # Get from Google
         self.fetch_g_cal()
         self.fetch_g_tasks()
-        print(f'Data retrieved in {time_elapsed} seconds.')
 
     def print_overview(self):
         """Call the print methods for container objects."""
@@ -566,14 +567,14 @@ class GTD():
         # processed, it will be dequeued (removed), and loop will continue with
         # next (now first) item in queue. Loop until no items are left.
 
-        d=self.d['inbox'].items
-        inbox=deque(d.keys())
+        d = self.d['inbox'].items
+        inbox = deque(d.keys())
 
         while len(inbox):
-            key=inbox[0]
-            menu_title=f"[Inbox Item]: {d[key]['title']}"
-            menu_subtitle=f"What is it? ({len(inbox)-1} items remaining)')"
-            selections=[
+            key = inbox[0]
+            menu_title = f"[Inbox Item]: {d[key]['title']}"
+            menu_subtitle = f"What is it? ({len(inbox)-1} items remaining)')"
+            selections = [
                 ("Next Action: It can be done in one step"),  # 0
                 ("Do It Now: It will take less than 2 minutes, so "  # 1
                  "do it!"),
@@ -586,45 +587,45 @@ class GTD():
                 ("Delete: It's not important. Forget about it."),  # 6
                 ("Skip")  # 7
             ]
-            menu=SelectionMenu(
+            menu = SelectionMenu(
                 selections, title=menu_title, subtitle=menu_subtitle)
             menu.show()
             menu.join()
-            selection=menu.selected_option
+            selection = menu.selected_option
 
             if selection == 0:  # Next Action
                 self.d['next_actions'].i_new_item(key)
-                taskID=inbox.popleft()
+                taskID = inbox.popleft()
                 quickstart.delete_g_task(taskID, 'inbox')
                 continue
             elif selection == 1:  # Do in 2 Min
                 print("Do it now!")
                 input("Press any key to start 2 min timer...")
                 timer(120)
-                done=input("Done? (y/n): ").lower()
+                done = input("Done? (y/n): ").lower()
                 if 'y' in done:
-                    taskID=inbox.popleft()
+                    taskID = inbox.popleft()
                     quickstart.complete_g_task(taskID, 'inbox')
                 else:
                     continue  # repeat loop with same item
             elif selection == 2:  # Calendar
                 self.d['calendar'].i_new_item(key)
-                taskID=inbox.popleft()
+                taskID = inbox.popleft()
                 quickstart.delete_g_task(taskID, 'inbox')
                 continue
             elif selection == 3:  # Waiting For
                 self.d['waiting_for'].i_new_item(key)
-                taskID=inbox.popleft()
+                taskID = inbox.popleft()
                 quickstart.delete_g_task(taskID, 'inbox')
                 continue
             elif selection == 4:  # Project
                 self.d['projects'].i_new_item(key)
-                taskID=inbox.popleft()
+                taskID = inbox.popleft()
                 quickstart.delete_g_task(taskID, 'inbox')
                 continue
             elif selection == 5:  # Maybe Someday
                 self.d['maybe_someday'].add(d[key]['title'], key)
-                taskID=inbox.popleft()
+                taskID = inbox.popleft()
                 quickstart.delete_g_task(taskID, 'inbox')
                 continue
             # elif 'r' in actionable:
@@ -632,7 +633,7 @@ class GTD():
             #     print('Not implemented')
             #     continue
             elif selection == 6:  # Delete
-                taskID=inbox.popleft()
+                taskID = inbox.popleft()
                 quickstart.delete_g_task(taskID, 'inbox')
                 print('Item deleted.')
                 continue
@@ -648,29 +649,29 @@ class GTD():
 
     def update_list(self, which):
         """Lists collection with prompt to delete/complete/etc."""
-        items=self.d[which].items
+        items = self.d[which].items
         while True:
             # print each action along with its index
-            title=which.replace('_', ' ').title()
+            title = which.replace('_', ' ').title()
             print('\n', title)
             for i, item in enumerate(items):
                 print('  ' + str(i) + ' ' + item.text)
             print(
                 'Enter number (if appropriate) followed by command [ie 1 d, 5t]:')
             print('(#d)one, (#t)rash, (#e)dit, (q)uit')
-            choice=input('> ').lower()
+            choice = input('> ').lower()
 
             # parse input for command and/or index
-            re_num=re.compile(r'\d*')
-            re_char=re.compile('[dteq]')
+            re_num = re.compile(r'\d*')
+            re_char = re.compile('[dteq]')
             try:
-                index=int(re_num.search(choice).group())
+                index = int(re_num.search(choice).group())
             except (AttributeError, ValueError):
-                index=None
+                index = None
             try:
-                command=re_char.search(choice).group()
+                command = re_char.search(choice).group()
             except AttributeError:
-                command=None
+                command = None
 
             if not command:
                 print('Invalid input!')
@@ -689,7 +690,7 @@ class GTD():
 
             if command == 't':
                 print('Delete task: ' + items[index].text)
-                confdelete=input('(y/n)').lower()
+                confdelete = input('(y/n)').lower()
                 if 'y' in confdelete:
                     items.pop(index)
                     print('Item deleted.')
@@ -697,7 +698,7 @@ class GTD():
                     print('Delete aborted.')
                     continue
             elif command == 'd':
-                items[index].completed=datetime.datetime.now()
+                items[index].completed = datetime.datetime.now()
                 self.d['completed_items'].items.append(items.pop(index))
                 print('Item marked complete and moved to Completed Items list.')
                 continue
@@ -719,41 +720,41 @@ class GTD():
         # there being no spaces. So the (P) task can be used as a description,
         # while +CamelCase notation can be used for a brief title that can
         # be used to group the project description and associated tasks.
-        with open('pygtd.txt', 'w') as f:
+        with open(PARENT / 'pygtd.txt', 'w') as f:
             for _, item in self.d['next_actions'].items.items():
-                text='(N) ' + item.get('title')
+                text = '(N) ' + item.get('title')
                 text += '\n'
                 f.write(text)
 
             for _, item in self.d['projects'].items.items():
-                text='(P) ' + item.get('title')
+                text = '(P) ' + item.get('title')
                 text += '\n'
                 f.write(text)
 
             for item in self.d['calendar'].items:
-                text='(S) ' + item.get('summary')
-                date=item['start'].get('date')
+                text = '(S) ' + item.get('summary')
+                date = item['start'].get('date')
                 if not date:
-                    date=item['start'].get('dateTime')
-                text=text + ' due:' + date
+                    date = item['start'].get('dateTime')
+                text = text + ' due:' + date
                 text += '\n'
                 f.write(text)
 
             for _, item in self.d['waiting_for'].items.items():
-                text='(W) ' + item.get('title')
-                due=item.get('due')
+                text = '(W) ' + item.get('title')
+                due = item.get('due')
                 if due:
-                    text=text + ' due:' + due.strftime('%Y-%m-%d')
+                    text = text + ' due:' + due.strftime('%Y-%m-%d')
                 text += '\n'
                 f.write(text)
 
             for _, item in self.d['maybe_someday'].items.items():
-                text='(Z) ' + item.get('title')
+                text = '(Z) ' + item.get('title')
                 text += '\n'
                 f.write(text)
 
             for _, item in self.d['inbox'].items.items():
-                text=item.get('title')
+                text = item.get('title')
                 text += '\n'
                 f.write(text)
 
@@ -762,12 +763,12 @@ def main():
     # only one argument is meant to be used at a time, but you could, say,
     # add an inbox item and view the lists at the same time if you wanted to
 
-    start_time=time()
-    description='A command-line GTD app that integrates with Google Calendar.'
-    epilog=('Add & at the end to leave the terminal free while data is being '
+    start_time = time()
+    description = 'A command-line GTD app that integrates with Google Calendar.'
+    epilog = ('Add & at the end to leave the terminal free while data is being '
               'uploaded/downloaded.')
-    parser=argparse.ArgumentParser(description=description, epilog=epilog)
-    group=parser.add_mutually_exclusive_group()
+    parser = argparse.ArgumentParser(description=description, epilog=epilog)
+    group = parser.add_mutually_exclusive_group()
     group.add_argument(
         '-i',
         '--inbox',
@@ -811,15 +812,15 @@ def main():
         dest='process_inbox',
         help='Process Inbox items.'
     )
-    args=parser.parse_args()
+    args = parser.parse_args()
 
     # instantiate object responsible for data
-    gtd=GTD()
+    gtd = GTD()
     # Inbox now adds directly to Firebase before loading data to save time.
     # Item will be in app data next time data is loaded from Firebase.
     if args.inbox:  # -i, --inbox
         # add text entered at CLI to inbox
-        text=' '.join(args.inbox)
+        text = ' '.join(args.inbox)
         gtd.d['inbox'].add(text)
         print('"{}" added to inbox.'.format(text))
         return True
@@ -840,19 +841,19 @@ def main():
         # print lists
         gtd.print_overview()
     if args.update_list:
-        s=args.update_list[0].lower()
+        s = args.update_list[0].lower()
         if s[0] == 'i':
-            which='inbox'
+            which = 'inbox'
         elif s[0] == 'n':
-            which='next_actions'
+            which = 'next_actions'
         elif s[0] == 'w':
-            which='waiting_for'
+            which = 'waiting_for'
         elif s[0] == 'p':
-            which='projects'
+            which = 'projects'
         elif s[0] == 'm':
-            which='maybe_someday'
+            which = 'maybe_someday'
         elif s[0] == 'c':
-            which='calendar'
+            which = 'calendar'
         gtd.update_list(which)
     if args.process_inbox:
         gtd.process_inbox()
@@ -865,9 +866,9 @@ def main():
     #     "who": "PenFed"
     # })
     gtd.print_todosh()
-    savethread=threading.Thread(target=gtd.fb_export)
+    savethread = threading.Thread(target=gtd.fb_export)
     savethread.start()
-    time_elapsed=round(time() - start_time)
+    time_elapsed = round(time() - start_time)
     print(f'Done in {time_elapsed} seconds.')
 
 
